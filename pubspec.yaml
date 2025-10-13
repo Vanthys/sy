@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.2
+  sdk: ^3.9.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -44,6 +44,13 @@ dependencies:
   collection: ^1.19.1
   intl: ^0.20.2
   sleek_circular_slider: ^2.1.0
+  #json_theme: ^9.0.1+2
+  json_theme:
+    git:
+      url: https://github.com/laurencetroyv/json_theme.git
+      path: packages/json_theme
+      ref: main
+  material_color_utilities: ^0.11.1
 
 dev_dependencies:
   flutter_test:
@@ -68,7 +75,14 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-
+  fonts:
+    - family: RobotoMono
+      fonts:
+        - asset: assets/fonts/RobotoMono-Regular.ttf
+        - asset: assets/fonts/RobotoMono-Bold.ttf
+  assets:
+    - assets/dark_theme.json
+    - assets/light_theme.json
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

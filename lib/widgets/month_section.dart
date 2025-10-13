@@ -69,39 +69,45 @@ class _DayBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final cs = theme.colorScheme;
 
     final hasData = dayData.amount > 0;
-    //final dayNumber = dayData.date.day.toString();
     final tooltip = hasData
         ? '${DateFormat('yyyy-MM-dd').format(dayData.date)} - ${dayData.amount} ${unitAbbreviation ?? 'units'}'
         : DateFormat('yyyy-MM-dd').format(dayData.date);
 
     final backgroundColor = hasData
         ? dayData.color
-        : colorScheme.surfaceBright; 
-
-    final textColor = hasData
-        ? colorScheme.onPrimary
-        : colorScheme.onSurfaceVariant;
+        : cs.surfaceContainerHighest;
+    final textColor = hasData ? cs.onSurfaceVariant : cs.onSurfaceVariant;
 
     return Material(
       color: backgroundColor,
       borderRadius: BorderRadius.circular(4),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(4),
         child: Tooltip(
           message: tooltip,
+          waitDuration: const Duration(milliseconds: 400),
           child: Center(
-            child: Text(
-              DateFormat('E').format(dayData.date).toUpperCase(),
-              //hasData ?  dayData.amount.toStringAsFixed(0) : "",
-              style: TextStyle(
-                fontSize: 48,
-                fontWeight: hasData ? FontWeight.bold : FontWeight.bold,
-                fontFamily: "Bebas Neue",
-                color: hasData ? textColor : textColor.withAlpha(50),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                DateFormat('E').format(dayData.date).toUpperCase(),
+                style: TextStyle(
+                  fontSize: 128, // big base size; shrinks dynamically
+                  fontWeight: FontWeight.w400,
+                  fontFamily: "RobotoMono", // or "monospace"
+                  letterSpacing: 1.0,
+                  color: hasData
+                      ? textColor
+                      : textColor.withValues(alpha: 0.3),
+                ),
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.fade,
               ),
             ),
           ),

@@ -56,9 +56,46 @@ class Entries extends Table {
       dateTime().withDefault(currentDateAndTime).named('updated_at')();
 }
 
+abstract class RecentActivity extends View {
+  Entries get entries;
+
+  Expression<String> get trackerId => entries.tracker;
+  Expression<DateTime> get date => entries.date;
+  Expression<double> get totalQuantity => entries.quantity.sum();
+  Expression<DateTime> get fromDate => Variable(DateTime.now().subtract(const Duration(days: 28)));
+
+  
+
+  @override
+  Query as() => 
+      select([trackerId, date, totalQuantity, fromDate])
+        .from(entries)
+        ..where(entries.date.isBiggerOrEqual(fromDate))
+        ..orderBy([OrderingTerm.asc(entries.date.date)]);
 
 
-@DriftDatabase(tables: [Trackers, Entries])
+}
+
+abstract class EntryStats extends View {
+  Entries get entries;
+
+  Expression<String> get trackerId => entries.tracker;
+  Expression<int> get totalEntries => entries.id.count();
+  Expression<DateTime> get lastEntryDate => entries.date.max();
+
+  @override
+  Query as() => 
+      select([trackerId, totalEntries, lastEntryDate])
+        .from(entries)
+        ..groupBy([trackerId]);
+}
+
+
+
+@DriftDatabase(
+  tables: [Trackers, Entries],
+  views: [RecentActivity, EntryStats]
+  )
 class AppDatabase extends _$AppDatabase {
   // After generating code, this class needs to define a `schemaVersion` getter
   // and a constructor telling drift where the database should be stored.

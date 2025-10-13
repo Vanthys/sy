@@ -1,11 +1,12 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../data/database.dart';
+import '../data/entry_repository.dart';
 import '../utils/color_utils.dart';
 import 'month_section.dart';
-import '../widgets/tracker_value_bottom_sheet.dart'; // 👈 our new bottom sheet
+import '../widgets/tracker_value_bottom_sheet.dart';
+
 
 class TrackerCalendar extends StatefulWidget {
   const TrackerCalendar({
@@ -26,24 +27,25 @@ class TrackerCalendar extends StatefulWidget {
 }
 
 class _TrackerCalendarState extends State<TrackerCalendar> {
+  late final EntryRepository _repo;
   List<Entry> entries = [];
 
   @override
   void initState() {
     super.initState();
-    _loadEntries();
+    _repo = EntryRepository(widget.database);
+     _repo.watchEntries(widget.trackerId).listen((data) {
+    if (mounted) {
+      setState(() => entries = data);
+    }
+  });
+    
   }
 
-  Future<void> _loadEntries() async {
-    final allEntries = await (widget.database.select(
-      widget.database.entries,
-    )..where((e) => e.tracker.equals(widget.trackerId))).get();
 
-    if (!mounted) return;
-    setState(() {
-      entries = allEntries;
-    });
-  }
+Future<void> _handleSave(DateTime date, double amount) async {
+  await _repo.saveEntry(widget.trackerId, date, amount);
+}
 
   List<_MonthData> _generateMonthsData() {
     final today = DateTime.now();
@@ -100,36 +102,7 @@ class _TrackerCalendarState extends State<TrackerCalendar> {
     return monthsData;
   }
 
-  Future<void> _handleSave(DateTime date, double amount) async {
-    // find existing entry
-    final Entry? existing = entries.firstWhere(
-      (e) => DateFormat('yyyy-MM-dd').format(e.date) ==
-          DateFormat('yyyy-MM-dd').format(date),
-      orElse: () => null as Entry,
-    );
-
-    if (amount > 0) {
-      if (existing != null) {
-        // update existing
-        await (widget.database.update(
-          widget.database.entries,
-        )..where((e) => e.id.equals(existing.id))).write(
-          EntriesCompanion(
-            quantity: Value(amount),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
-      }
-    } else if (existing != null) {
-      // delete if setting to 0
-      await (widget.database.delete(
-        widget.database.entries,
-      )..where((e) => e.id.equals(existing.id))).go();
-    }
-
-    await _loadEntries();
-  }
-
+  
   @override
   Widget build(BuildContext context) {
     final monthsData = _generateMonthsData()

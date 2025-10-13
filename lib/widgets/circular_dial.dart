@@ -29,7 +29,6 @@ class _CircularDialState extends State<CircularDial> {
   }
 
   void _handleChange(double newValue) {
-    // ✨ Wrap value when it exceeds max
     final wrapped = newValue % widget.maxValue;
     setState(() => _value = wrapped);
     widget.onChanged(wrapped);
@@ -52,7 +51,7 @@ class _CircularDialState extends State<CircularDial> {
         ),
         customColors: CustomSliderColors(
           trackColor: Theme.of(context).colorScheme.surfaceBright,
-          progressBarColor: Theme.of(context).colorScheme.primary,
+          progressBarColor: Theme.of(context).colorScheme.surface,
           dotColor: Theme.of(context).colorScheme.secondary,
         ),
         infoProperties: InfoProperties(

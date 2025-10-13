@@ -1,11 +1,8 @@
-// lib/screens/tracker_list_screen.dart
-
-
 import 'package:flutter/material.dart';
-
-import '../data/database.dart';
-import '../widgets/tracker_editor_dialog.dart';
-
+import '/data/database.dart';
+import '/data/tracker_repository.dart';
+import '/widgets/tracker_editor_sheet.dart';
+import '/widgets/tracker_overview_card.dart';
 import 'tracker_calendar_screen.dart';
 
 class TrackerListScreen extends StatefulWidget {
@@ -18,41 +15,86 @@ class TrackerListScreen extends StatefulWidget {
 }
 
 class _TrackerListScreenState extends State<TrackerListScreen> {
-  Future<void> _showCreateTrackerDialog() async {
-  final result = await showDialog<bool>(
-    context: context,
-    builder: (_) => TrackerEditorDialog(database: widget.database),
-  );
-  if (result == true && mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Tracker created')),
-    );
-  }
-}
+  late final TrackerRepository _repo;
 
+  @override
+  void initState() {
+    super.initState();
+    _repo = TrackerRepository(widget.database);
+  }
+
+  Future<void> _openTrackerEditor({Tracker? existing}) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => TrackerEditorSheet(
+        repo: _repo,
+        existingTracker: existing,
+      ),
+    );
+
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            existing == null ? 'Tracker created' : 'Tracker updated',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteTracker(Tracker t) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete tracker?'),
+        content: Text('This will remove "${t.title}" and its entries.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _repo.deleteTracker(t.id);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Trackers')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _openTrackerEditor(),
+        icon: const Icon(Icons.add),
+        label: const Text('New Tracker'),
+      ),
       body: StreamBuilder<List<Tracker>>(
-        stream: widget.database.select(widget.database.trackers).watch(),
+        stream: _repo.watchAllTrackers(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Failed to load trackers',
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-            );
+            return const Center(child: Text('Error loading trackers'));
           }
-
-          final trackers = snapshot.data;
-
-          if (trackers == null) {
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
+          final trackers = snapshot.data!;
           if (trackers.isEmpty) {
             return Center(
               child: Column(
@@ -61,7 +103,7 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
                   const Text('No trackers yet.'),
                   const SizedBox(height: 8),
                   FilledButton(
-                    onPressed: _showCreateTrackerDialog,
+                    onPressed: () => _openTrackerEditor(),
                     child: const Text('Create your first tracker'),
                   ),
                 ],
@@ -69,25 +111,21 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
             itemCount: trackers.length,
-            separatorBuilder: (context, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final tracker = trackers[index];
-              final subtitleParts = <String>[
-                if (tracker.description != null && tracker.description!.isNotEmpty)
-                  tracker.description!,
-                'Current streak: ${tracker.currentStreak}',
-                'Longest streak: ${tracker.longestStreak}',
-              ];
+            itemBuilder: (context, i) {
+              final tracker = trackers[i];
 
-              return ListTile(
-                title: Text(tracker.title),
-                subtitle: subtitleParts.isEmpty ? null : Text(subtitleParts.join('\n')),
-                trailing: const Icon(Icons.chevron_right),
+              // placeholder: simulate recent activity with random data
+              final recent = List<double>.generate(28, (i) => (i % 6).toDouble());
+
+              return TrackerOverviewCard(
+                tracker: tracker,
+                recentActivity: recent,
                 onTap: () {
-                  Navigator.of(context).push(
+                  Navigator.push(
+                    context,
                     MaterialPageRoute(
                       builder: (_) => TrackerCalendarScreen(
                         trackerId: tracker.id,
@@ -97,14 +135,12 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
                     ),
                   );
                 },
+                onEdit: () => _openTrackerEditor(existing: tracker),
+                onDelete: () => _deleteTracker(tracker),
               );
             },
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateTrackerDialog,
-        child: const Icon(Icons.add),
       ),
     );
   }
