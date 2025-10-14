@@ -80,6 +80,9 @@ flutter:
       fonts:
         - asset: assets/fonts/RobotoMono-Regular.ttf
         - asset: assets/fonts/RobotoMono-Bold.ttf
+    - family: BebasNeue
+      fonts: 
+        - asset: assets/fonts/BebasNeue-Regular.ttf
   assets:
     - assets/dark_theme.json
     - assets/light_theme.json

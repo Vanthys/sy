@@ -62,4 +62,32 @@ class EntryRepository {
   Future<void> deleteEntry(int id) async {
     await (db.delete(db.entries)..where((e) => e.id.equals(id))).go();
   }
+
+
+  Stream<List<Entry>> watchEntriesInRange(
+    String trackerId,
+    DateTime from,
+    DateTime to,
+  ) {
+    final query = (db.select(db.entries)
+          ..where((e) => e.tracker.equals(trackerId))
+          ..where((e) => e.date.isBetweenValues(from, to))
+          ..orderBy([(e) => OrderingTerm.desc(e.date)]));
+    return query.watch();
+  }
+
+  Future<List<Entry>> fetchEntriesInRange(
+    String trackerId,
+    DateTime from,
+    DateTime to,
+  ) async {
+    return (db.select(db.entries)
+          ..where((e) => e.tracker.equals(trackerId))
+          ..where((e) => e.date.isBetweenValues(from, to))
+          ..orderBy([(e) => OrderingTerm.desc(e.date)]))
+        .get();
+  }
+
+
 }
+

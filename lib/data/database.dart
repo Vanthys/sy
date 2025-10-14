@@ -40,8 +40,8 @@ class Trackers extends Table {
   Set<Column<Object>> get primaryKey => {id};
 }
 
-
 @DataClassName('Entry')
+@TableIndex(name: 'entry_index', columns: {#date})
 class Entries extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get tracker => text().references(Trackers, #id)();

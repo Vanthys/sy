@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
 import '../data/database.dart';
@@ -6,7 +8,6 @@ import '../data/entry_repository.dart';
 import '../utils/color_utils.dart';
 import 'month_section.dart';
 import '../widgets/tracker_value_bottom_sheet.dart';
-
 
 class TrackerCalendar extends StatefulWidget {
   const TrackerCalendar({
@@ -28,113 +29,203 @@ class TrackerCalendar extends StatefulWidget {
 
 class _TrackerCalendarState extends State<TrackerCalendar> {
   late final EntryRepository _repo;
-  List<Entry> entries = [];
+
+  static const int _monthsPerBatch = 6;
+  final ScrollController _scrollController = ScrollController();
+
+  final List<Entry> _entries = [];
+
+  late DateTime _latestMonth;
+  late DateTime _earliestLoaded;
+
+  bool _isLoadingMore = false;
+  StreamSubscription<List<Entry>>? _entriesSub;
 
   @override
   void initState() {
     super.initState();
     _repo = EntryRepository(widget.database);
-     _repo.watchEntries(widget.trackerId).listen((data) {
-    if (mounted) {
-      setState(() => entries = data);
-    }
-  });
-    
+
+    final now = DateTime.now();
+    _latestMonth = DateTime(now.year, now.month, 1);
+    _earliestLoaded =
+        DateTime(now.year, now.month - (_monthsPerBatch - 1), 1);
+
+    _loadInitialEntries();
+    _scrollController.addListener(_onScroll);
   }
 
-
-Future<void> _handleSave(DateTime date, double amount) async {
-  await _repo.saveEntry(widget.trackerId, date, amount);
-}
-
-  List<_MonthData> _generateMonthsData() {
-    final today = DateTime.now();
-    final Map<String, Entry> entriesByDate = {};
-
-    for (final entry in entries) {
-      final dateKey = DateFormat('yyyy-MM-dd').format(entry.date);
-      entriesByDate[dateKey] = entry;
-    }
-
-    DateTime earliest = today.subtract(const Duration(days: 180));
-    if (entries.isNotEmpty) {
-      final sortedEntries = List<Entry>.from(entries)
-        ..sort((a, b) => a.date.compareTo(b.date));
-      earliest = sortedEntries.first.date;
-    }
-
-    DateTime current = DateTime(earliest.year, earliest.month, 1);
-    final monthsData = <_MonthData>[];
-
-    while (!current.isAfter(today)) {
-      final monthStart = DateTime(current.year, current.month, 1);
-      final monthLabel = DateFormat('MMMM yyyy').format(monthStart);
-
-      final daysInMonth = DateTime(current.year, current.month + 1, 0).day;
-      final days = <DayData>[];
-
-      for (var day = 1; day <= daysInMonth; day++) {
-        final date = DateTime(current.year, current.month, day);
-        if (date.isAfter(today)) {
-          break;
-        }
-
-        final dateKey = DateFormat('yyyy-MM-dd').format(date);
-        final entry = entriesByDate[dateKey];
-
-        days.add(
-          DayData(
-            date: date,
-            entry: entry,
-            amount: entry?.quantity ?? 0,
-            color: ColorUtils.getColorForAmount(entry?.quantity ?? 0),
-          ),
-        );
-      }
-
-      monthsData.add(
-        _MonthData(monthStart: monthStart, label: monthLabel, days: days),
-      );
-
-      current = DateTime(current.year, current.month + 1, 1);
-    }
-
-    return monthsData;
+  @override
+  void dispose() {
+    _entriesSub?.cancel();
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  
+  // ----------------------------------------
+  // Database loading
+  // ----------------------------------------
+
+  void _loadInitialEntries() {
+    _entriesSub?.cancel();
+    _entriesSub = _repo
+        .watchEntriesInRange(
+          widget.trackerId,
+          _earliestLoaded,
+          _latestMonth.add(const Duration(days: 31)), // include current month fully
+        )
+        .listen((data) {
+      if (!mounted) return;
+      setState(() {
+        _entries
+          ..clear()
+          ..addAll(data);
+      });
+    });
+  }
+
+  Future<void> _loadMorePastMonths() async {
+    if (_isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+
+    final newStart =
+        DateTime(_earliestLoaded.year, _earliestLoaded.month - _monthsPerBatch, 1);
+
+    final older = await _repo.fetchEntriesInRange(
+      widget.trackerId,
+      newStart,
+      _earliestLoaded,
+    );
+
+    setState(() {
+      _entries.insertAll(0, older);
+      _earliestLoaded = newStart;
+      _isLoadingMore = false;
+    });
+  }
+
+  // ----------------------------------------
+  // Scroll + UI logic
+  // ----------------------------------------
+
+  void _onScroll() {
+    if (_isLoadingMore) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      _loadMorePastMonths();
+    }
+  }
+
+  Future<void> _handleSave(DateTime date, double amount) async {
+    await _repo.saveEntry(widget.trackerId, date, amount);
+  }
+
+  // ----------------------------------------
+  // Build UI
+  // ----------------------------------------
+
   @override
   Widget build(BuildContext context) {
-    final monthsData = _generateMonthsData()
-      ..sort((a, b) => b.monthStart.compareTo(a.monthStart));
+    final months = _groupEntriesIntoMonths(_entries);
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: monthsData.length,
-      itemBuilder: (context, index) {
-        final month = monthsData[index];
-        return MonthSection(
-          monthLabel: month.label,
-          days: month.days.reversed.toList(),
-          unitAbbreviation: widget.unitAbbreviation,
-          onDayTap: (dayData) async {
-            final result = await showTrackerValueBottomSheet(
-              context: context,
-              date: dayData.date,
-              initialAmount: dayData.entry?.quantity ?? 0,
-              unitName: widget.unitName ?? 'units',
-              maxValue: 100, // or pass a tracker-specific max
-            );
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverList.separated(
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemCount: months.length,
+            itemBuilder: (context, index) {
+              final month = months[index];
+              return MonthSection(
+                monthLabel: month.label,
+                days: month.days.reversed.toList(),
+                unitAbbreviation: widget.unitAbbreviation,
+                onDayTap: (dayData) async {
+                  final result = await showTrackerValueBottomSheet(
+                    context: context,
+                    date: dayData.date,
+                    initialAmount: dayData.entry?.quantity ?? 0,
+                    unitName: widget.unitName ?? 'units',
+                    maxValue: 100,
+                  );
+                  if (result != null) {
+                    await _handleSave(dayData.date, result);
+                  }
+                },
+              );
+            },
+          ),
+        ),
 
-            if (result != null) {
-              await _handleSave(dayData.date, result);
-            }
-          },
-        );
-      },
+        // Loading indicator
+        SliverToBoxAdapter(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _isLoadingMore
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ),
+      ],
     );
   }
+
+  // ----------------------------------------
+  // Helpers
+  // ----------------------------------------
+
+  List<_MonthData> _groupEntriesIntoMonths(List<Entry> entries) {
+    final grouped = <String, List<Entry>>{};
+    for (final e in entries) {
+      final key = DateFormat('yyyy-MM').format(e.date);
+      grouped.putIfAbsent(key, () => []).add(e);
+    }
+
+    final months = <_MonthData>[];
+    DateTime month = _latestMonth;
+
+    while (month.isAfter(_earliestLoaded) ||
+        month.isAtSameMomentAs(_earliestLoaded)) {
+      final key = DateFormat('yyyy-MM').format(month);
+      final entriesForMonth = grouped[key] ?? [];
+
+      final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
+      final days = List.generate(daysInMonth, (i) {
+        final date = DateTime(month.year, month.month, i + 1);
+        final Entry? entry = entriesForMonth.firstWhereOrNull(
+          (e) => DateUtils.isSameDay(e.date, date),
+        );
+        final amount = entry?.quantity ?? 0.0;
+
+        return DayData(
+          date: date,
+          entry: entry, // null if not present
+          amount: amount,
+          color: ColorUtils.getColorForAmount(amount),
+        );
+      }).reversed.toList();
+
+      months.add(_MonthData(
+        monthStart: month,
+        label: DateFormat('MMMM yyyy').format(month),
+        days: days,
+      ));
+
+      month = DateTime(month.year, month.month - 1, 1);
+    }
+
+    return months;
+  }
 }
+
+// ----------------------------------------
+// Supporting models
+// ----------------------------------------
 
 class DayData {
   const DayData({

@@ -90,7 +90,7 @@ class _DayBlock extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
         child: Tooltip(
           message: tooltip,
-          waitDuration: const Duration(milliseconds: 400),
+          waitDuration: const Duration(milliseconds: 500),
           child: Center(
             child: FittedBox(
               fit: BoxFit.scaleDown,
@@ -99,7 +99,7 @@ class _DayBlock extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 128, // big base size; shrinks dynamically
                   fontWeight: FontWeight.w400,
-                  fontFamily: "RobotoMono", // or "monospace"
+                  fontFamily: "BebasNeue", //"RobotoMono", // or "monospace"
                   letterSpacing: 1.0,
                   color: hasData
                       ? textColor
