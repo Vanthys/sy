@@ -16,12 +16,12 @@ class EntryRepository {
   Future<void> saveEntry(String trackerId, DateTime date, double amount) async {
   // Normalize: strip time part
   final normalized = DateTime(date.year, date.month, date.day);
-  final nextDay = normalized.add(const Duration(days: 1));
+  //final nextDay = normalized.add(const Duration(days: 1));
 
   // Try to find existing record for that date
   final existing = await (db.select(db.entries)
         ..where((e) => e.tracker.equals(trackerId))
-        ..where((e) => e.date.isBetweenValues(normalized, nextDay)))
+        ..where((e) => e.date.equals(normalized)))
       .getSingleOrNull();
 
   if (amount > 0) {

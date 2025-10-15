@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:sy3/data/database.dart';
 
 import 'tracker_calendar.dart';
 
@@ -9,12 +10,14 @@ class MonthSection extends StatelessWidget {
     required this.monthLabel,
     required this.days,
     this.unitAbbreviation,
+    this.streakType,
     required this.onDayTap,
   });
 
   final String monthLabel;
   final List<DayData> days;
   final String? unitAbbreviation;
+  final StreakType? streakType;
   final ValueChanged<DayData> onDayTap;
 
   @override
@@ -46,6 +49,7 @@ class MonthSection extends StatelessWidget {
                 dayData: day,
                 unitAbbreviation: unitAbbreviation,
                 onTap: () => onDayTap(day),
+                streakType: streakType,
               );
             },
           ),
@@ -60,11 +64,13 @@ class _DayBlock extends StatelessWidget {
     required this.dayData,
     this.unitAbbreviation,
     required this.onTap,
+    this.streakType,
   });
 
   final DayData dayData;
   final String? unitAbbreviation;
   final VoidCallback onTap;
+  final StreakType? streakType;
 
   @override
   Widget build(BuildContext context) {
@@ -76,43 +82,86 @@ class _DayBlock extends StatelessWidget {
         ? '${DateFormat('yyyy-MM-dd').format(dayData.date)} - ${dayData.amount} ${unitAbbreviation ?? 'units'}'
         : DateFormat('yyyy-MM-dd').format(dayData.date);
 
-    final backgroundColor = hasData
-        ? dayData.color
-        : cs.surfaceContainerHighest;
+    final backgroundColor =
+        hasData ? dayData.color : cs.surfaceContainerHighest;
     final textColor = hasData ? cs.onSurfaceVariant : cs.onSurfaceVariant;
 
-    return Material(
-      color: backgroundColor,
-      borderRadius: BorderRadius.circular(4),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(4),
-        child: Tooltip(
-          message: tooltip,
-          waitDuration: const Duration(milliseconds: 500),
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                DateFormat('E').format(dayData.date).toUpperCase(),
-                style: TextStyle(
-                  fontSize: 128, // big base size; shrinks dynamically
-                  fontWeight: FontWeight.w400,
-                  fontFamily: "BebasNeue", //"RobotoMono", // or "monospace"
-                  letterSpacing: 1.0,
-                  color: hasData
-                      ? textColor
-                      : textColor.withValues(alpha: 0.3),
+    final bool inStreak = dayData.inStreak;
+    final Color glowColor = streakType == StreakType.abstinence
+        ? Colors.lightBlueAccent
+        : Colors.orangeAccent;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        if (inStreak)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            width: double.infinity,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: [
+                BoxShadow(
+                  color: glowColor.withValues(alpha: 0.5),
+                  blurRadius: 10,
+                  spreadRadius: 2,
                 ),
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.fade,
+              ],
+            ),
+          ),
+
+        Material(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(4),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(4),
+            child: Tooltip(
+              message: tooltip,
+              waitDuration: const Duration(milliseconds: 500),
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    DateFormat('E').format(dayData.date).toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 128,
+                      fontWeight: FontWeight.w400,
+                      fontFamily: "BebasNeue",
+                      letterSpacing: 1.0,
+                      color: inStreak
+                          ? glowColor // highlight streak text too
+                          : hasData
+                              ? textColor
+                              : textColor.withValues(alpha: 0.3),
+                    ),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.fade,
+                  ),
+                ),
               ),
             ),
           ),
         ),
-      ),
+
+        // 🆕 Optional small overlay border (like Duolingo streak badge)
+        if (inStreak)
+          IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: glowColor.withValues(alpha: 0.8),
+                  width: 2,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
+
