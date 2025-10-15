@@ -91,10 +91,11 @@ class _TrackerCalendarState extends State<TrackerCalendar> {
     final newStart =
         DateTime(_earliestLoaded.year, _earliestLoaded.month - _monthsPerBatch, 1);
 
+    // Add +1 day to include the boundary month fully
     final older = await _repo.fetchEntriesInRange(
       widget.trackerId,
       newStart,
-      _earliestLoaded,
+      _earliestLoaded.add(const Duration(days: 1)),
     );
 
     setState(() {
@@ -103,6 +104,7 @@ class _TrackerCalendarState extends State<TrackerCalendar> {
       _isLoadingMore = false;
     });
   }
+
 
   // ----------------------------------------
   // Scroll + UI logic
@@ -134,7 +136,7 @@ class _TrackerCalendarState extends State<TrackerCalendar> {
         SliverPadding(
           padding: const EdgeInsets.all(16),
           sliver: SliverList.separated(
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemCount: months.length,
             itemBuilder: (context, index) {
               final month = months[index];
@@ -148,7 +150,7 @@ class _TrackerCalendarState extends State<TrackerCalendar> {
                     date: dayData.date,
                     initialAmount: dayData.entry?.quantity ?? 0,
                     unitName: widget.unitName ?? 'units',
-                    maxValue: 100,
+                    maxValue: 12,
                   );
                   if (result != null) {
                     await _handleSave(dayData.date, result);

@@ -13,65 +13,64 @@ class EntryRepository {
         .get();
   }
 
-
   Future<void> saveEntry(String trackerId, DateTime date, double amount) async {
-    // Try to find an existing entry for the same tracker and calendar day
-    final existing = await (db.select(db.entries)
-          ..where((e) => e.tracker.equals(trackerId))
-          ..where((e) => e.date.year.equals(date.year))
-          ..where((e) => e.date.month.equals(date.month))
-          ..where((e) => e.date.day.equals(date.day)))
-        .getSingleOrNull();
+  // Normalize: strip time part
+  final normalized = DateTime(date.year, date.month, date.day);
+  final nextDay = normalized.add(const Duration(days: 1));
 
-    if (amount > 0) {
-      if (existing != null) {
-        await (db.update(db.entries)
-              ..where((e) => e.id.equals(existing.id)))
-            .write(
-          EntriesCompanion(
-            quantity: Value(amount),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
-      } else {
-        await db.into(db.entries).insert(
-              EntriesCompanion(
-                tracker: Value(trackerId),
-                date: Value(date),
-                quantity: Value(amount),
-                createdAt: Value(DateTime.now()),
-                updatedAt: Value(DateTime.now()),
-              ),
-            );
-      }
-    } else if (existing != null) {
-      await (db.delete(db.entries)
-            ..where((e) => e.id.equals(existing.id)))
-          .go();
+  // Try to find existing record for that date
+  final existing = await (db.select(db.entries)
+        ..where((e) => e.tracker.equals(trackerId))
+        ..where((e) => e.date.isBetweenValues(normalized, nextDay)))
+      .getSingleOrNull();
+
+  if (amount > 0) {
+    if (existing != null) {
+      await (db.update(db.entries)..where((e) => e.id.equals(existing.id))).write(
+        EntriesCompanion(
+          quantity: Value(amount),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    } else {
+      await db.into(db.entries).insert(
+            EntriesCompanion(
+              tracker: Value(trackerId),
+              date: Value(normalized), // <— store as midnight
+              quantity: Value(amount),
+              createdAt: Value(DateTime.now()),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
     }
+  } else if (existing != null) {
+    await (db.delete(db.entries)..where((e) => e.id.equals(existing.id))).go();
   }
+}
+
 
   Stream<List<Entry>> watchEntries(String trackerId) {
-  return (db.select(db.entries)
-        ..where((e) => e.tracker.equals(trackerId))
-        ..orderBy([(e) => OrderingTerm.desc(e.date)]))
-      .watch();
+    return (db.select(db.entries)
+          ..where((e) => e.tracker.equals(trackerId))
+          ..orderBy([(e) => OrderingTerm.desc(e.date)]))
+        .watch();
   }
-
 
   Future<void> deleteEntry(int id) async {
     await (db.delete(db.entries)..where((e) => e.id.equals(id))).go();
   }
-
 
   Stream<List<Entry>> watchEntriesInRange(
     String trackerId,
     DateTime from,
     DateTime to,
   ) {
+    // Extend 'to' by 1 day to make end inclusive
+    final toInclusive = to.add(const Duration(days: 1));
+
     final query = (db.select(db.entries)
           ..where((e) => e.tracker.equals(trackerId))
-          ..where((e) => e.date.isBetweenValues(from, to))
+          ..where((e) => e.date.isBetweenValues(from, toInclusive))
           ..orderBy([(e) => OrderingTerm.desc(e.date)]));
     return query.watch();
   }
@@ -81,13 +80,13 @@ class EntryRepository {
     DateTime from,
     DateTime to,
   ) async {
+    // Same fix for consistency
+    final toInclusive = to.add(const Duration(days: 1));
+
     return (db.select(db.entries)
           ..where((e) => e.tracker.equals(trackerId))
-          ..where((e) => e.date.isBetweenValues(from, to))
+          ..where((e) => e.date.isBetweenValues(from, toInclusive))
           ..orderBy([(e) => OrderingTerm.desc(e.date)]))
         .get();
   }
-
-
 }
-

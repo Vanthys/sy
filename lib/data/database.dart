@@ -106,6 +106,9 @@ class AppDatabase extends _$AppDatabase {
   int get schemaVersion => 1;
 
   static QueryExecutor _openConnection() {
+    
+    getApplicationSupportDirectory().then((dir) => print('DB Path: $dir'));
+
     return driftDatabase(
       name: 'trackers',
       native: const DriftNativeOptions(
