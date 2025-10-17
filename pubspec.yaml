@@ -51,6 +51,7 @@ dependencies:
       path: packages/json_theme
       ref: main
   material_color_utilities: ^0.11.1
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
