@@ -1,52 +1,91 @@
 import 'package:flutter/material.dart';
 import '/data/database.dart';
+import '/data/entry_repository.dart';
 
 class TrackerOverviewCard extends StatelessWidget {
   const TrackerOverviewCard({
     super.key,
     required this.tracker,
+    required this.database,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
-    this.recentActivity,
   });
 
   final Tracker tracker;
+  final AppDatabase database;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final List<double>? recentActivity;
 
   static const int _gridRows = 4;
   static const int _gridCols = 7;
 
   @override
   Widget build(BuildContext context) {
+    final repo = EntryRepository(database);
+    final now = DateTime.now();
+    final from = DateTime(now.year, now.month - 1, now.day);
+
     final cs = Theme.of(context).colorScheme;
     final accent = tracker.streakType == StreakType.continued
         ? cs.primary
         : cs.tertiary;
 
-    return Material(
-      color: cs.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.antiAlias, // ensures ripple + shadow clip cleanly
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context, accent),
-              const SizedBox(height: 12),
-              if (recentActivity != null && recentActivity!.isNotEmpty)
-                _buildGrid(context, recentActivity!, accent),
-            ],
+    return StreamBuilder<List<Entry>>(
+      stream: repo.watchEntriesInRange(tracker.id, from, now),
+      builder: (context, snapshot) {
+        final entries = snapshot.data ?? [];
+        // Inside the StreamBuilder:
+final now = DateTime.now();
+final start = now.subtract(const Duration(days: 27));
+
+// Create map of all last 28 days initialized to 0
+final dayMap = {
+  for (int i = 0; i < 28; i++)
+    DateTime(start.year, start.month, start.day + i): 0.0
+};
+
+// Fill in tracked quantities
+for (final entry in entries) {
+  final d = DateTime(entry.date.year, entry.date.month, entry.date.day);
+  if (d.isAfter(start.subtract(const Duration(days: 1))) &&
+      d.isBefore(now.add(const Duration(days: 1)))) {
+    dayMap[d] = entry.quantity;
+  }
+}
+
+// Convert to ordered list oldest → newest
+final recentActivity = dayMap.entries.toList()
+  ..sort((a, b) => a.key.compareTo(b.key));
+final dailyValues = recentActivity.map((e) => e.value).toList().reversed.toList();
+
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8), // small gap
+          child: Material(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(context, accent),
+                    const SizedBox(height: 12),
+                    if (dailyValues.isNotEmpty)
+                      _buildGrid(context, dailyValues, accent),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -60,7 +99,6 @@ class TrackerOverviewCard extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Leading icon box
         Container(
           width: 36,
           height: 36,
@@ -79,8 +117,6 @@ class TrackerOverviewCard extends StatelessWidget {
             color: accent,
           ),
         ),
-
-        // Title / desc / stats column
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,8 +162,6 @@ class TrackerOverviewCard extends StatelessWidget {
             ],
           ),
         ),
-
-        // Popup menu
         PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'edit') onEdit();
@@ -163,11 +197,9 @@ class TrackerOverviewCard extends StatelessWidget {
 
   Widget _buildGrid(BuildContext context, List<double> data, Color accent) {
     final cs = Theme.of(context).colorScheme;
-
     final maxVal = data.isEmpty ? 1 : data.reduce((a, b) => a > b ? a : b);
     final normalized = data.map((v) => v / (maxVal == 0 ? 1 : maxVal)).toList();
 
-    // Pad to 7×4 = 28 cells
     final cells = List<double>.generate(_gridRows * _gridCols, (i) {
       final index = data.length - _gridCols * _gridRows + i;
       return index >= 0 && index < data.length ? normalized[index] : 0;

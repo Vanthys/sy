@@ -53,7 +53,7 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete tracker?'),
-        content: Text('This will remove "${t.title}" and its entries.'),
+        content: Text('This will remove "${t.title}" and all its entries.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -111,18 +111,16 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
             );
           }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
+          return ListView.separated(
+            padding: const EdgeInsets.all(8),
+            separatorBuilder: (_, __) => const SizedBox(height: 0),
             itemCount: trackers.length,
             itemBuilder: (context, i) {
               final tracker = trackers[i];
 
-              // placeholder: simulate recent activity with random data
-              final recent = List<double>.generate(28, (i) => (i % 6).toDouble());
-
               return TrackerOverviewCard(
                 tracker: tracker,
-                recentActivity: recent,
+                database: widget.database, // 🔗 inject database for auto-loading
                 onTap: () {
                   Navigator.push(
                     context,

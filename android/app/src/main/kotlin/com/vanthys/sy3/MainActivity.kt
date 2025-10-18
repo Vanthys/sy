@@ -1,4 +1,4 @@
-package com.example.sy3
+package com.vanthys.sy3
 
 import io.flutter.embedding.android.FlutterActivity
 
