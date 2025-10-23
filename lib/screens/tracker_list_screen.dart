@@ -113,7 +113,7 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
 
           return ListView.separated(
             padding: const EdgeInsets.all(8),
-            separatorBuilder: (_, __) => const SizedBox(height: 0),
+            separatorBuilder: (_, _) => const SizedBox(height: 0),
             itemCount: trackers.length,
             itemBuilder: (context, i) {
               final tracker = trackers[i];

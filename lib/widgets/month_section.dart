@@ -129,7 +129,7 @@ class _DayBlock extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 128,
                       fontWeight: FontWeight.w400,
-                      fontFamily: "BebasNeue",
+                      fontFamily: "NovaMono",
                       letterSpacing: 1.0,
                       color: inStreak
                           ? glowColor // highlight streak text too

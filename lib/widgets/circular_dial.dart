@@ -77,10 +77,10 @@ class _CircularDialState extends State<CircularDial> {
           handlerSize: 16, // easier to grab
         ),
         customColors: CustomSliderColors(
-          trackColor: theme.colorScheme.surfaceVariant,
+          trackColor: theme.colorScheme.onSurfaceVariant,
           progressBarColor: theme.colorScheme.primary,
           dotColor: theme.colorScheme.secondary,
-          shadowColor: theme.colorScheme.primary.withOpacity(0.2),
+          shadowColor: theme.colorScheme.primary.withValues(alpha: 0.2),
         ),
         infoProperties: InfoProperties(
           mainLabelStyle: theme.textTheme.headlineMedium?.copyWith(

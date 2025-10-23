@@ -84,6 +84,9 @@ flutter:
     - family: BebasNeue
       fonts: 
         - asset: assets/fonts/BebasNeue-Regular.ttf
+    - family: NovaMono
+      fonts:
+        - asset: assets/fonts/NovaMono-Regular.ttf
   assets:
     - assets/dark_theme.json
     - assets/light_theme.json

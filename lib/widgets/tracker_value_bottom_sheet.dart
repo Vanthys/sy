@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import '/widgets/tracker_inputs/tracker_dial_field.dart';
+import '/widgets/tracker_inputs/scrubbable_dial_field.dart';
 
 Future<double?> showTrackerValueBottomSheet({
   required BuildContext context,
@@ -126,19 +125,26 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
             ),
             const SizedBox(height: 24),
 
-            // --- Circular Dial ---
-           TrackerDialField(
-  value: totalValue,
-  maxValue: widget.maxValue,
-  unitName: widget.unitName,
-  onChanged: (newValue) {
-    setState(() {
-      _baseRotations = (newValue ~/ widget.maxValue);
-      _value = (newValue % widget.maxValue);
-      _controller.text = _formatValue(newValue);
-    });
-  },
+const SizedBox(height: 24),
+Center(
+  child: ScrubbableDialField(
+    value: _value,
+    maxValue: widget.maxValue,
+    unitName: widget.unitName,
+    onChanged: (newTotal) {
+      setState(() {
+        _baseRotations = (newTotal ~/ widget.maxValue);
+        _value = (newTotal % widget.maxValue);
+      });
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 200), () {
+        _controller.text = _formatValue(newTotal);
+      });
+    },
+  ),
 ),
+const SizedBox(height: 24),
+
 
 
             const SizedBox(height: 24),

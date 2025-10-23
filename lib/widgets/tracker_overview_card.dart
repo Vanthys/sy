@@ -211,7 +211,7 @@ final dailyValues = recentActivity.map((e) => e.value).toList().reversed.toList(
       children: List.generate(cells.length, (i) {
         final value = cells[i];
         final color = value == 0
-            ? cs.surfaceContainerHighest
+            ? cs.outlineVariant
             : accent.withValues(alpha: 0.30 + (value * 0.70));
         return Container(
           width: 12,
