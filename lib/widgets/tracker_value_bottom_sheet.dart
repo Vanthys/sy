@@ -74,23 +74,12 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
     super.dispose();
   }
 
-  double _snap(double val) {
-    if (widget.step <= 0) return val;
-    return (val / widget.step).round() * widget.step;
-  }
 
   String _formatValue(double v) =>
       v.truncateToDouble() == v ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
 
 
-  void _updateFromText(double newTotal) {
-    final snapped = _snap(newTotal);
-    setState(() {
-      _baseRotations = (snapped ~/ widget.maxValue);
-      _value = (snapped % widget.maxValue);
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,26 +138,7 @@ const SizedBox(height: 24),
 
             const SizedBox(height: 24),
 
-            // --- Manual Input ---
-            TextField(
-              controller: _controller,
-              textAlign: TextAlign.center,
-              decoration: InputDecoration(
-                labelText: 'Amount (${widget.unitName})',
-                hintText: 'Enter manually',
-                border: const OutlineInputBorder(),
-              ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              onChanged: (text) {
-                final parsed = double.tryParse(text);
-                if (parsed != null) {
-                  _updateFromText(parsed);
-                }
-              },
-            ),
-
-            const SizedBox(height: 24),
+           
 
             // --- Buttons ---
             Row(

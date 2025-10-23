@@ -24,8 +24,10 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
     with TickerProviderStateMixin {
   late double _value;
   int _baseRotations = 0;
-  double _previousValue = 0;
   bool _isDragging = false;
+  bool _canWrapForward = false;
+  bool _canWrapBackward = false;
+  int _lastIntValue = 0;
 
   double get totalValue => _baseRotations * widget.maxValue + _value;
 
@@ -38,15 +40,13 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
     super.initState();
     _baseRotations = (widget.value ~/ widget.maxValue);
     _value = widget.value % widget.maxValue;
-    _previousValue = _value;
+    _lastIntValue = totalValue.round();
 
-    // --- Sequential chevron animation ---
     _hintController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
 
-    // Left chevron: starts early, ends mid-way
     _leftArrowOpacity = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 60),
@@ -55,7 +55,6 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
       curve: const Interval(0.0, 0.6, curve: Curves.easeInOutCubic),
     ));
 
-    // Right chevron: starts later, ends at the very end
     _rightArrowOpacity = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 60),
@@ -64,11 +63,9 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
       curve: const Interval(0.4, 1.0, curve: Curves.easeInOut),
     ));
 
-    // Start hint after sheet fully opens
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 250), () {
-        if (mounted) _hintController.forward();
-      });
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 250));
+      if (mounted) _hintController.forward();
     });
   }
 
@@ -78,53 +75,92 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
     super.dispose();
   }
 
-  void _handleChange(double newValue) {
-    const threshold = 0.8;
+  // ---------------- Interaction ----------------
 
-    if (_previousValue > widget.maxValue * threshold &&
-        newValue < widget.maxValue * (1 - threshold)) {
+  void _onDragStart(DragStartDetails details) {
+    setState(() => _isDragging = true);
+    _hintController.stop();
+    HapticFeedback.selectionClick();
+
+    if (_canWrapForward && _value >= widget.maxValue * 0.98) {
       _baseRotations++;
+      _value = 0;
       HapticFeedback.mediumImpact();
-    } else if (_previousValue < widget.maxValue * (1 - threshold) &&
-        newValue > widget.maxValue * threshold) {
-      if (_baseRotations > 0) _baseRotations--;
-      HapticFeedback.selectionClick();
+    } else if (_canWrapBackward && _value <= widget.maxValue * 0.02) {
+      if (_baseRotations > 0) {
+        _baseRotations--;
+        _value = widget.maxValue;
+        HapticFeedback.mediumImpact();
+      }
     }
 
-    setState(() {
-      _value = newValue;
-      _previousValue = newValue;
-    });
+    _canWrapForward = false;
+    _canWrapBackward = false;
+  }
 
+  void _onDragUpdate(DragUpdateDetails details) {
+    final delta = details.delta.dx / 4;
+    final newValue = (_value + delta).clamp(0.0, widget.maxValue);
+    setState(() => _value = newValue);
     widget.onChanged(totalValue);
+
+    final intValue = totalValue.round();
+    if (intValue != _lastIntValue) {
+      _lastIntValue = intValue;
+      HapticFeedback.selectionClick();
+    }
   }
 
-  void _handleHorizontalDrag(DragUpdateDetails details) {
-    final delta = details.delta.dx / 4; // sensitivity
-    double newValue = (_value + delta).clamp(0, widget.maxValue);
-    _handleChange(newValue);
+  void _onDragEnd(DragEndDetails details) {
+    setState(() => _isDragging = false);
+
+    if (_value >= widget.maxValue * 0.98) {
+      _canWrapForward = true;
+    } else if (_value <= widget.maxValue * 0.02) {
+      _canWrapBackward = true;
+    } else {
+      _canWrapForward = false;
+      _canWrapBackward = false;
+    }
   }
+
+  void _increment() {
+    setState(() {
+      final newTotal = totalValue + 1;
+      _baseRotations = (newTotal ~/ widget.maxValue);
+      _value = newTotal % widget.maxValue;
+    });
+    widget.onChanged(totalValue);
+    HapticFeedback.lightImpact();
+  }
+
+  void _decrement() {
+    setState(() {
+      final newTotal = (totalValue - 1).clamp(0, double.infinity);
+      _baseRotations = (newTotal ~/ widget.maxValue);
+      _value = newTotal % widget.maxValue;
+    });
+    widget.onChanged(totalValue);
+    HapticFeedback.lightImpact();
+  }
+
+  // ---------------- UI ----------------
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final progressFraction = _value / widget.maxValue;
+    final progressFraction =
+        (widget.maxValue == 0) ? 0.0 : (_value / widget.maxValue);
 
     return GestureDetector(
-      onHorizontalDragStart: (_) {
-        setState(() => _isDragging = true);
-        _hintController.stop(); // stop hint if user interacts
-        HapticFeedback.selectionClick();
-      },
-      onHorizontalDragUpdate: _handleHorizontalDrag,
-      onHorizontalDragEnd: (_) {
-        setState(() => _isDragging = false);
-      },
+      onHorizontalDragStart: _onDragStart,
+      onHorizontalDragUpdate: _onDragUpdate,
+      onHorizontalDragEnd: _onDragEnd,
       behavior: HitTestBehavior.translucent,
       child: SizedBox(
-        width: 220,
-        height: 220,
+        width: 260,
+        height: 260,
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -139,49 +175,57 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
               ),
             ),
 
-            // --- Value label + animated chevrons ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                FadeTransition(
+            // --- Center label ---
+            AnimatedScale(
+              duration: const Duration(milliseconds: 120),
+              scale: _isDragging ? 1.1 : 1.0,
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 120),
+                style: textTheme.headlineMedium!.copyWith(
+                  color: _isDragging
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+                child: Text('${totalValue.round()} ${widget.unitName}'),
+              ),
+            ),
+
+            // --- Left Chevron (outside the ring) ---
+            Positioned(
+              left: 16,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _decrement,
+                child: FadeTransition(
                   opacity: _leftArrowOpacity,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Icon(
-                      Icons.chevron_left,
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
-                      size: 48,
-                    ),
+                  child: Icon(
+                    Icons.chevron_left,
+                    color: colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.45),
+                    size: 60,
                   ),
                 ),
-                AnimatedScale(
-                  duration: const Duration(milliseconds: 120),
-                  scale: _isDragging ? 1.1 : 1.0,
-                  child: AnimatedDefaultTextStyle(
-                    duration: const Duration(milliseconds: 120),
-                    style: textTheme.headlineMedium!.copyWith(
-                      color: _isDragging
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                    child: Text('${totalValue.round()} ${widget.unitName}'),
-                  ),
-                ),
-                FadeTransition(
+              ),
+            ),
+
+            // --- Right Chevron (outside the ring) ---
+            Positioned(
+              right: 16,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _increment,
+                child: FadeTransition(
                   opacity: _rightArrowOpacity,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Icon(
-                      Icons.chevron_right,
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
-                      size: 48,
-                    ),
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.45),
+                    size: 60,
                   ),
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -216,16 +260,16 @@ class _DialRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final progressPaint = Paint()
-      ..color = isActive ? color : color.withValues(alpha: 0.8)
+      ..color =
+          (isActive ? color.withValues(alpha: 0.9) : color.withValues(alpha: 0.7))
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    // Start angle = 0.75π (around 135°)
     const startAngle = 0.75 * math.pi;
-    final sweepAngle = progress * (math.pi * 1.5); // 270° sweep
+    final sweepAngle = progress * (math.pi * 1.5);
 
-    // Draw background
+    // Track
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       startAngle,
@@ -234,21 +278,23 @@ class _DialRingPainter extends CustomPainter {
       trackPaint,
     );
 
-    // Draw progress
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      sweepAngle,
-      false,
-      progressPaint,
-    );
+    // Progress
+    if (sweepAngle > 0) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        progressPaint,
+      );
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _DialRingPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.isActive != isActive ||
-        oldDelegate.color != color ||
-        oldDelegate.trackColor != trackColor;
+  bool shouldRepaint(covariant _DialRingPainter old) {
+    return old.progress != progress ||
+        old.isActive != isActive ||
+        old.color != color ||
+        old.trackColor != trackColor;
   }
 }
