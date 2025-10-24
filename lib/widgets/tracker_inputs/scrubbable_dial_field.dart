@@ -49,7 +49,7 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
 
     _leftArrowOpacity = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 60),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.5), weight: 60),
     ]).animate(CurvedAnimation(
       parent: _hintController,
       curve: const Interval(0.0, 0.6, curve: Curves.easeInOutCubic),
@@ -57,14 +57,14 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
 
     _rightArrowOpacity = TweenSequence([
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 60),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.5), weight: 60),
     ]).animate(CurvedAnimation(
       parent: _hintController,
-      curve: const Interval(0.4, 1.0, curve: Curves.easeInOut),
+      curve: const Interval(0.0, 0.6, curve: Curves.easeInOut),
     ));
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await Future.delayed(const Duration(milliseconds: 250));
+      //await Future.delayed(const Duration(milliseconds: 150));
       if (mounted) _hintController.forward();
     });
   }
@@ -159,7 +159,7 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
       onHorizontalDragEnd: _onDragEnd,
       behavior: HitTestBehavior.translucent,
       child: SizedBox(
-        width: 260,
+        width: 380,
         height: 260,
         child: Stack(
           alignment: Alignment.center,
@@ -169,6 +169,7 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
               size: const Size(220, 220),
               painter: _DialRingPainter(
                 progress: progressFraction,
+                maxValue: widget.maxValue,
                 color: colorScheme.primary,
                 trackColor: colorScheme.surfaceContainerHighest,
                 isActive: _isDragging,
@@ -236,15 +237,17 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
 
 class _DialRingPainter extends CustomPainter {
   final double progress;
+  final double maxValue;
   final Color color;
   final Color trackColor;
   final bool isActive;
 
   _DialRingPainter({
     required this.progress,
+    required this.maxValue,
     required this.color,
     required this.trackColor,
-    required this.isActive,
+    required this.isActive
   });
 
   @override
@@ -267,7 +270,11 @@ class _DialRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     const startAngle = 0.75 * math.pi;
-    final sweepAngle = progress * (math.pi * 1.5);
+    final roundBase = 1.5 * math.pi / maxValue;
+    var sweepAngle = progress * (math.pi * 1.5);
+
+    sweepAngle = (sweepAngle / roundBase).round() * roundBase;
+
 
     // Track
     canvas.drawArc(
@@ -290,6 +297,17 @@ class _DialRingPainter extends CustomPainter {
     }
   }
 
+  double roundToBase(double number, double base) {
+    if (base == 0) return number;
+    
+    double scaleFactor = 1e10;  
+    double scaledNumber = number * scaleFactor;
+    double scaledBase = base * scaleFactor;
+    
+    return (scaledNumber / scaledBase).round() * scaledBase / scaleFactor;
+  }
+
+
   @override
   bool shouldRepaint(covariant _DialRingPainter old) {
     return old.progress != progress ||
@@ -298,3 +316,5 @@ class _DialRingPainter extends CustomPainter {
         old.trackColor != trackColor;
   }
 }
+
+

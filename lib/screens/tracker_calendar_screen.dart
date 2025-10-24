@@ -45,8 +45,6 @@ class TrackerCalendarScreen extends StatelessWidget {
           return TrackerCalendar(
             trackerId: trackerId,
             database: database,
-            unitName: tracker.unitName,
-            unitAbbreviation: tracker.unitAbbreviation,
             streakType: tracker.streakType,
           );
         },

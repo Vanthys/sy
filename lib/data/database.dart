@@ -4,13 +4,11 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'tracker_config.dart';
+
 part 'database.g.dart';
 
-enum StreakType {
-  continued,
-  abstinence,
-}
-
+enum StreakType { continued, abstinence }
 
 @DataClassName('Tracker')
 class Trackers extends Table {
@@ -21,20 +19,17 @@ class Trackers extends Table {
 
   IntColumn get streakType => intEnum<StreakType>().named('streak_type')();
 
-  TextColumn get unitName => text().nullable().named('unit_name')();
-  TextColumn get unitAbbreviation => text().nullable().named('unit_abbreviation')();
+  TextColumn get config => text().map(const TrackerConfigConverter())();
 
   IntColumn get currentStreak =>
       integer().withDefault(const Constant(0)).named('current_streak')();
   IntColumn get longestStreak =>
       integer().withDefault(const Constant(0)).named('longest_streak')();
 
-  DateTimeColumn get createdAt => dateTime()
-      .withDefault(currentDateAndTime)
-      .named('created_at')();
-  DateTimeColumn get updatedAt => dateTime()
-      .withDefault(currentDateAndTime)
-      .named('updated_at')();
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime).named('created_at')();
+  DateTimeColumn get updatedAt =>
+      dateTime().withDefault(currentDateAndTime).named('updated_at')();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -62,18 +57,13 @@ abstract class RecentActivity extends View {
   Expression<String> get trackerId => entries.tracker;
   Expression<DateTime> get date => entries.date;
   Expression<double> get totalQuantity => entries.quantity.sum();
-  Expression<DateTime> get fromDate => Variable(DateTime.now().subtract(const Duration(days: 28)));
-
-  
+  Expression<DateTime> get fromDate =>
+      Variable(DateTime.now().subtract(const Duration(days: 28)));
 
   @override
-  Query as() => 
-      select([trackerId, date, totalQuantity, fromDate])
-        .from(entries)
-        ..where(entries.date.isBiggerOrEqual(fromDate))
-        ..orderBy([OrderingTerm.asc(entries.date.date)]);
-
-
+  Query as() => select([trackerId, date, totalQuantity, fromDate]).from(entries)
+    ..where(entries.date.isBiggerOrEqual(fromDate))
+    ..orderBy([OrderingTerm.asc(entries.date.date)]);
 }
 
 abstract class EntryStats extends View {
@@ -84,18 +74,12 @@ abstract class EntryStats extends View {
   Expression<DateTime> get lastEntryDate => entries.date.max();
 
   @override
-  Query as() => 
-      select([trackerId, totalEntries, lastEntryDate])
-        .from(entries)
+  Query as() =>
+      select([trackerId, totalEntries, lastEntryDate]).from(entries)
         ..groupBy([trackerId]);
 }
 
-
-
-@DriftDatabase(
-  tables: [Trackers, Entries],
-  views: [RecentActivity, EntryStats]
-  )
+@DriftDatabase(tables: [Trackers, Entries], views: [RecentActivity, EntryStats])
 class AppDatabase extends _$AppDatabase {
   // After generating code, this class needs to define a `schemaVersion` getter
   // and a constructor telling drift where the database should be stored.
@@ -103,10 +87,28 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async {
+      await m.createAll();
+    },
+    onUpgrade: (m, from, to) async {
+      print(
+        '⚠️ Clearing and recreating database (from version $from to $to)...',
+      );
+      for (final table in allTables) {
+        await m.deleteTable(table.actualTableName);
+      }
+      await m.createAll();
+    },
+    beforeOpen: (details) async {
+      print('Database ready (version ${details.versionNow})');
+    },
+  );
 
   static QueryExecutor _openConnection() {
-    
     getApplicationSupportDirectory().then((dir) => print('DB Path: $dir'));
 
     return driftDatabase(
@@ -120,4 +122,3 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 }
-

@@ -1,34 +1,38 @@
 import 'package:drift/drift.dart';
 import '/data/database.dart';
+import 'tracker_config.dart';
 
 class TrackerRepository {
   final AppDatabase db;
 
   TrackerRepository(this.db);
 
+  /// Fetch all trackers, ordered by creation date (newest first)
   Future<List<Tracker>> getAllTrackers() async {
     return (db.select(db.trackers)
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
         .get();
   }
 
+  /// Stream all trackers to listen for live updates
   Stream<List<Tracker>> watchAllTrackers() {
     return (db.select(db.trackers)
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
         .watch();
   }
 
+  /// Get a single tracker by ID
   Future<Tracker?> getTrackerById(String id) async {
     return (db.select(db.trackers)..where((t) => t.id.equals(id)))
         .getSingleOrNull();
   }
 
+  /// Create a new tracker with a given configuration
   Future<void> createTracker({
     required String title,
     String? description,
     required StreakType streakType,
-    String? unitName,
-    String? unitAbbreviation,
+    required TrackerConfig config,
   }) async {
     final now = DateTime.now();
     await db.into(db.trackers).insert(
@@ -36,21 +40,20 @@ class TrackerRepository {
             title: title,
             description: Value(description),
             streakType: streakType,
-            unitName: Value(unitName),
-            unitAbbreviation: Value(unitAbbreviation),
+            config: config,
             createdAt: Value(now),
             updatedAt: Value(now),
           ),
         );
   }
 
+  /// Update tracker info (title, description, streaks, etc.)
   Future<void> updateTracker(
     String id, {
     String? title,
     String? description,
     StreakType? streakType,
-    String? unitName,
-    String? unitAbbreviation,
+    TrackerConfig? config,
     int? currentStreak,
     int? longestStreak,
   }) async {
@@ -59,8 +62,7 @@ class TrackerRepository {
         title: Value.absentIfNull(title),
         description: Value.absentIfNull(description),
         streakType: Value.absentIfNull(streakType),
-        unitName: Value.absentIfNull(unitName),
-        unitAbbreviation: Value.absentIfNull(unitAbbreviation),
+        config: Value.absentIfNull(config),
         currentStreak: Value.absentIfNull(currentStreak),
         longestStreak: Value.absentIfNull(longestStreak),
         updatedAt: Value(DateTime.now()),
@@ -68,6 +70,7 @@ class TrackerRepository {
     );
   }
 
+  /// Delete tracker and optionally its entries
   Future<void> deleteTracker(String id, {bool deleteEntries = true}) async {
     if (deleteEntries) {
       await (db.delete(db.entries)..where((e) => e.tracker.equals(id))).go();
@@ -75,6 +78,7 @@ class TrackerRepository {
     await (db.delete(db.trackers)..where((t) => t.id.equals(id))).go();
   }
 
+  /// Update streak stats only
   Future<void> updateStreaks(String id, int current, int longest) async {
     await (db.update(db.trackers)..where((t) => t.id.equals(id))).write(
       TrackersCompanion(

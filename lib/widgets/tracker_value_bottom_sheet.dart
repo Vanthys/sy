@@ -74,12 +74,8 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
     super.dispose();
   }
 
-
   String _formatValue(double v) =>
       v.truncateToDouble() == v ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -87,10 +83,9 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24).copyWith(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          top: 16,
-        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 24,
+        ).copyWith(bottom: MediaQuery.of(context).viewInsets.bottom, top: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -108,37 +103,30 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
             // --- Date ---
             Text(
               DateFormat('EEEE, MMM d, yyyy').format(widget.date),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
 
-const SizedBox(height: 24),
-Center(
-  child: ScrubbableDialField(
-    value: _value,
-    maxValue: widget.maxValue,
-    unitName: widget.unitName,
-    onChanged: (newTotal) {
-      setState(() {
-        _baseRotations = (newTotal ~/ widget.maxValue);
-        _value = (newTotal % widget.maxValue);
-      });
-      _debounceTimer?.cancel();
-      _debounceTimer = Timer(const Duration(milliseconds: 200), () {
-        _controller.text = _formatValue(newTotal);
-      });
-    },
-  ),
-),
-const SizedBox(height: 24),
-
-
-
             const SizedBox(height: 24),
-
-           
+            Center(
+              child: ScrubbableDialField(
+                value: _value,
+                maxValue: widget.maxValue,
+                unitName: widget.unitName,
+                onChanged: (newTotal) {
+                  setState(() {
+                    _baseRotations = (newTotal ~/ widget.maxValue);
+                    _value = (newTotal % widget.maxValue);
+                  });
+                  _debounceTimer?.cancel();
+                  _debounceTimer = Timer(const Duration(milliseconds: 200), () {
+                    _controller.text = _formatValue(newTotal);
+                  });
+                },
+              ),
+            ),
 
             // --- Buttons ---
             Row(

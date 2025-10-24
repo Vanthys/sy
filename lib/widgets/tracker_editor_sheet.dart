@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '/data/database.dart';
 import '/data/tracker_repository.dart';
+import '/data/tracker_config.dart';
 
 class TrackerEditorSheet extends StatefulWidget {
   const TrackerEditorSheet({
@@ -21,47 +22,64 @@ class TrackerEditorSheet extends StatefulWidget {
 class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
-  late final TextEditingController _unitNameController;
-  late final TextEditingController _unitAbbreviationController;
+  late final TextEditingController _unitController;
+  late final TextEditingController _unitAbbrController;
   late StreakType _streakType;
+  late TrackerConfig _config;
 
   String? _titleError;
   bool _isSubmitting = false;
   bool _showAdvanced = false;
-
   late final TrackerRepository _repo;
 
   @override
   void initState() {
     super.initState();
     _repo = widget.repo;
-
     final existing = widget.existingTracker;
+
     _titleController = TextEditingController(text: existing?.title ?? '');
     _descriptionController = TextEditingController(text: existing?.description ?? '');
-    _unitNameController = TextEditingController(text: existing?.unitName ?? '');
-    _unitAbbreviationController = TextEditingController(text: existing?.unitAbbreviation ?? '');
+    _unitController = TextEditingController();
+    _unitAbbrController = TextEditingController();
     _streakType = existing?.streakType ?? StreakType.continued;
+
+    // Load existing config or create default one
+    _config = existing?.config ??
+        const TrackerConfig(
+          inputType: InputType.number,
+          unit: '',
+          streakColor: '#2196F3',
+        );
+
+    // Initialize controllers from config
+    _unitController.text = _config.unit ?? '';
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _unitNameController.dispose();
-    _unitAbbreviationController.dispose();
+    _unitController.dispose();
     super.dispose();
   }
 
   Future<void> _saveTracker() async {
     final title = _titleController.text.trim();
-
     if (title.isEmpty) {
       setState(() => _titleError = 'Title is required');
       return;
     }
 
     setState(() => _isSubmitting = true);
+
+    // Update config with latest UI values
+    final updatedConfig = TrackerConfig(
+      inputType: _config.inputType,
+      unit: _unitController.text.trim(),
+      streakColor: _config.streakColor,
+      maxValue: _config.maxValue,
+    );
 
     try {
       if (widget.isEditing) {
@@ -70,16 +88,14 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
           title: title,
           description: _descriptionController.text.trim(),
           streakType: _streakType,
-          unitName: _unitNameController.text.trim(),
-          unitAbbreviation: _unitAbbreviationController.text.trim(),
+          config: updatedConfig,
         );
       } else {
         await _repo.createTracker(
           title: title,
           description: _descriptionController.text.trim(),
           streakType: _streakType,
-          unitName: _unitNameController.text.trim(),
-          unitAbbreviation: _unitAbbreviationController.text.trim(),
+          config: updatedConfig,
         );
       }
 
@@ -97,7 +113,6 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.isEditing;
     final colorScheme = Theme.of(context).colorScheme;
 
     return SafeArea(
@@ -125,7 +140,7 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                 ),
               ),
               Text(
-                isEditing ? 'Edit Tracker' : 'New Tracker',
+                widget.isEditing ? 'Edit Tracker' : 'New Tracker',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -139,20 +154,13 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                   labelText: 'Title',
                   errorText: _titleError,
                 ),
-                textCapitalization: TextCapitalization.sentences,
-                onChanged: (_) {
-                  if (_titleError != null) setState(() => _titleError = null);
-                },
               ),
               const SizedBox(height: 12),
 
               TextField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (optional)',
-                ),
+                decoration: const InputDecoration(labelText: 'Description'),
                 maxLines: 2,
-                textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 12),
 
@@ -175,13 +183,14 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
               ),
 
               const SizedBox(height: 8),
-              // --- MORE OPTIONS TOGGLE ---
               TextButton.icon(
                 onPressed: () => setState(() => _showAdvanced = !_showAdvanced),
                 icon: Icon(
                   _showAdvanced ? Icons.expand_less : Icons.expand_more,
                 ),
-                label: Text(_showAdvanced ? 'Hide advanced settings' : 'More options'),
+                label: Text(_showAdvanced
+                    ? 'Hide advanced settings'
+                    : 'More options'),
               ),
 
               AnimatedCrossFade(
@@ -190,18 +199,16 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                   children: [
                     const SizedBox(height: 8),
                     TextField(
-                      controller: _unitNameController,
+                      controller: _unitController,
                       decoration: const InputDecoration(labelText: 'Unit name'),
-                      textCapitalization: TextCapitalization.words,
                     ),
                     const SizedBox(height: 12),
                     TextField(
-                      controller: _unitAbbreviationController,
+                      controller: _unitAbbrController,
                       decoration:
                           const InputDecoration(labelText: 'Unit abbreviation'),
                     ),
                     const SizedBox(height: 12),
-                    // future icon/color selectors can go here
                     Text(
                       'More customization options coming soon…',
                       style: Theme.of(context)
@@ -216,7 +223,6 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                     : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 250),
               ),
-
               const SizedBox(height: 24),
 
               Row(
@@ -231,16 +237,13 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                   Expanded(
                     child: FilledButton(
                       onPressed: _isSubmitting ? null : _saveTracker,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                      ),
                       child: _isSubmitting
                           ? const SizedBox(
                               height: 18,
                               width: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Text(isEditing ? 'Save' : 'Create'),
+                          : Text(widget.isEditing ? 'Save' : 'Create'),
                     ),
                   ),
                 ],

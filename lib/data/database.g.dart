@@ -51,28 +51,15 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
         type: DriftSqlType.int,
         requiredDuringInsert: true,
       ).withConverter<StreakType>($TrackersTable.$converterstreakType);
-  static const VerificationMeta _unitNameMeta = const VerificationMeta(
-    'unitName',
-  );
   @override
-  late final GeneratedColumn<String> unitName = GeneratedColumn<String>(
-    'unit_name',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _unitAbbreviationMeta = const VerificationMeta(
-    'unitAbbreviation',
-  );
-  @override
-  late final GeneratedColumn<String> unitAbbreviation = GeneratedColumn<String>(
-    'unit_abbreviation',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
+  late final GeneratedColumnWithTypeConverter<TrackerConfig, String> config =
+      GeneratedColumn<String>(
+        'config',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<TrackerConfig>($TrackersTable.$converterconfig);
   static const VerificationMeta _currentStreakMeta = const VerificationMeta(
     'currentStreak',
   );
@@ -127,8 +114,7 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
     title,
     description,
     streakType,
-    unitName,
-    unitAbbreviation,
+    config,
     currentStreak,
     longestStreak,
     createdAt,
@@ -163,21 +149,6 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
         description.isAcceptableOrUnknown(
           data['description']!,
           _descriptionMeta,
-        ),
-      );
-    }
-    if (data.containsKey('unit_name')) {
-      context.handle(
-        _unitNameMeta,
-        unitName.isAcceptableOrUnknown(data['unit_name']!, _unitNameMeta),
-      );
-    }
-    if (data.containsKey('unit_abbreviation')) {
-      context.handle(
-        _unitAbbreviationMeta,
-        unitAbbreviation.isAcceptableOrUnknown(
-          data['unit_abbreviation']!,
-          _unitAbbreviationMeta,
         ),
       );
     }
@@ -238,13 +209,11 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
           data['${effectivePrefix}streak_type'],
         )!,
       ),
-      unitName: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}unit_name'],
-      ),
-      unitAbbreviation: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}unit_abbreviation'],
+      config: $TrackersTable.$converterconfig.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}config'],
+        )!,
       ),
       currentStreak: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -272,6 +241,8 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
 
   static JsonTypeConverter2<StreakType, int, int> $converterstreakType =
       const EnumIndexConverter<StreakType>(StreakType.values);
+  static TypeConverter<TrackerConfig, String> $converterconfig =
+      const TrackerConfigConverter();
 }
 
 class Tracker extends DataClass implements Insertable<Tracker> {
@@ -279,8 +250,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
   final String title;
   final String? description;
   final StreakType streakType;
-  final String? unitName;
-  final String? unitAbbreviation;
+  final TrackerConfig config;
   final int currentStreak;
   final int longestStreak;
   final DateTime createdAt;
@@ -290,8 +260,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
     required this.title,
     this.description,
     required this.streakType,
-    this.unitName,
-    this.unitAbbreviation,
+    required this.config,
     required this.currentStreak,
     required this.longestStreak,
     required this.createdAt,
@@ -310,11 +279,10 @@ class Tracker extends DataClass implements Insertable<Tracker> {
         $TrackersTable.$converterstreakType.toSql(streakType),
       );
     }
-    if (!nullToAbsent || unitName != null) {
-      map['unit_name'] = Variable<String>(unitName);
-    }
-    if (!nullToAbsent || unitAbbreviation != null) {
-      map['unit_abbreviation'] = Variable<String>(unitAbbreviation);
+    {
+      map['config'] = Variable<String>(
+        $TrackersTable.$converterconfig.toSql(config),
+      );
     }
     map['current_streak'] = Variable<int>(currentStreak);
     map['longest_streak'] = Variable<int>(longestStreak);
@@ -331,12 +299,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
           ? const Value.absent()
           : Value(description),
       streakType: Value(streakType),
-      unitName: unitName == null && nullToAbsent
-          ? const Value.absent()
-          : Value(unitName),
-      unitAbbreviation: unitAbbreviation == null && nullToAbsent
-          ? const Value.absent()
-          : Value(unitAbbreviation),
+      config: Value(config),
       currentStreak: Value(currentStreak),
       longestStreak: Value(longestStreak),
       createdAt: Value(createdAt),
@@ -356,8 +319,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
       streakType: $TrackersTable.$converterstreakType.fromJson(
         serializer.fromJson<int>(json['streakType']),
       ),
-      unitName: serializer.fromJson<String?>(json['unitName']),
-      unitAbbreviation: serializer.fromJson<String?>(json['unitAbbreviation']),
+      config: serializer.fromJson<TrackerConfig>(json['config']),
       currentStreak: serializer.fromJson<int>(json['currentStreak']),
       longestStreak: serializer.fromJson<int>(json['longestStreak']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -374,8 +336,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
       'streakType': serializer.toJson<int>(
         $TrackersTable.$converterstreakType.toJson(streakType),
       ),
-      'unitName': serializer.toJson<String?>(unitName),
-      'unitAbbreviation': serializer.toJson<String?>(unitAbbreviation),
+      'config': serializer.toJson<TrackerConfig>(config),
       'currentStreak': serializer.toJson<int>(currentStreak),
       'longestStreak': serializer.toJson<int>(longestStreak),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -388,8 +349,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
     String? title,
     Value<String?> description = const Value.absent(),
     StreakType? streakType,
-    Value<String?> unitName = const Value.absent(),
-    Value<String?> unitAbbreviation = const Value.absent(),
+    TrackerConfig? config,
     int? currentStreak,
     int? longestStreak,
     DateTime? createdAt,
@@ -399,10 +359,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
     title: title ?? this.title,
     description: description.present ? description.value : this.description,
     streakType: streakType ?? this.streakType,
-    unitName: unitName.present ? unitName.value : this.unitName,
-    unitAbbreviation: unitAbbreviation.present
-        ? unitAbbreviation.value
-        : this.unitAbbreviation,
+    config: config ?? this.config,
     currentStreak: currentStreak ?? this.currentStreak,
     longestStreak: longestStreak ?? this.longestStreak,
     createdAt: createdAt ?? this.createdAt,
@@ -418,10 +375,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
       streakType: data.streakType.present
           ? data.streakType.value
           : this.streakType,
-      unitName: data.unitName.present ? data.unitName.value : this.unitName,
-      unitAbbreviation: data.unitAbbreviation.present
-          ? data.unitAbbreviation.value
-          : this.unitAbbreviation,
+      config: data.config.present ? data.config.value : this.config,
       currentStreak: data.currentStreak.present
           ? data.currentStreak.value
           : this.currentStreak,
@@ -440,8 +394,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('streakType: $streakType, ')
-          ..write('unitName: $unitName, ')
-          ..write('unitAbbreviation: $unitAbbreviation, ')
+          ..write('config: $config, ')
           ..write('currentStreak: $currentStreak, ')
           ..write('longestStreak: $longestStreak, ')
           ..write('createdAt: $createdAt, ')
@@ -456,8 +409,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
     title,
     description,
     streakType,
-    unitName,
-    unitAbbreviation,
+    config,
     currentStreak,
     longestStreak,
     createdAt,
@@ -471,8 +423,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
           other.title == this.title &&
           other.description == this.description &&
           other.streakType == this.streakType &&
-          other.unitName == this.unitName &&
-          other.unitAbbreviation == this.unitAbbreviation &&
+          other.config == this.config &&
           other.currentStreak == this.currentStreak &&
           other.longestStreak == this.longestStreak &&
           other.createdAt == this.createdAt &&
@@ -484,8 +435,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
   final Value<String> title;
   final Value<String?> description;
   final Value<StreakType> streakType;
-  final Value<String?> unitName;
-  final Value<String?> unitAbbreviation;
+  final Value<TrackerConfig> config;
   final Value<int> currentStreak;
   final Value<int> longestStreak;
   final Value<DateTime> createdAt;
@@ -496,8 +446,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
     this.title = const Value.absent(),
     this.description = const Value.absent(),
     this.streakType = const Value.absent(),
-    this.unitName = const Value.absent(),
-    this.unitAbbreviation = const Value.absent(),
+    this.config = const Value.absent(),
     this.currentStreak = const Value.absent(),
     this.longestStreak = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -509,22 +458,21 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
     required String title,
     this.description = const Value.absent(),
     required StreakType streakType,
-    this.unitName = const Value.absent(),
-    this.unitAbbreviation = const Value.absent(),
+    required TrackerConfig config,
     this.currentStreak = const Value.absent(),
     this.longestStreak = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : title = Value(title),
-       streakType = Value(streakType);
+       streakType = Value(streakType),
+       config = Value(config);
   static Insertable<Tracker> custom({
     Expression<String>? id,
     Expression<String>? title,
     Expression<String>? description,
     Expression<int>? streakType,
-    Expression<String>? unitName,
-    Expression<String>? unitAbbreviation,
+    Expression<String>? config,
     Expression<int>? currentStreak,
     Expression<int>? longestStreak,
     Expression<DateTime>? createdAt,
@@ -536,8 +484,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (streakType != null) 'streak_type': streakType,
-      if (unitName != null) 'unit_name': unitName,
-      if (unitAbbreviation != null) 'unit_abbreviation': unitAbbreviation,
+      if (config != null) 'config': config,
       if (currentStreak != null) 'current_streak': currentStreak,
       if (longestStreak != null) 'longest_streak': longestStreak,
       if (createdAt != null) 'created_at': createdAt,
@@ -551,8 +498,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
     Value<String>? title,
     Value<String?>? description,
     Value<StreakType>? streakType,
-    Value<String?>? unitName,
-    Value<String?>? unitAbbreviation,
+    Value<TrackerConfig>? config,
     Value<int>? currentStreak,
     Value<int>? longestStreak,
     Value<DateTime>? createdAt,
@@ -564,8 +510,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
       title: title ?? this.title,
       description: description ?? this.description,
       streakType: streakType ?? this.streakType,
-      unitName: unitName ?? this.unitName,
-      unitAbbreviation: unitAbbreviation ?? this.unitAbbreviation,
+      config: config ?? this.config,
       currentStreak: currentStreak ?? this.currentStreak,
       longestStreak: longestStreak ?? this.longestStreak,
       createdAt: createdAt ?? this.createdAt,
@@ -591,11 +536,10 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
         $TrackersTable.$converterstreakType.toSql(streakType.value),
       );
     }
-    if (unitName.present) {
-      map['unit_name'] = Variable<String>(unitName.value);
-    }
-    if (unitAbbreviation.present) {
-      map['unit_abbreviation'] = Variable<String>(unitAbbreviation.value);
+    if (config.present) {
+      map['config'] = Variable<String>(
+        $TrackersTable.$converterconfig.toSql(config.value),
+      );
     }
     if (currentStreak.present) {
       map['current_streak'] = Variable<int>(currentStreak.value);
@@ -622,8 +566,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('streakType: $streakType, ')
-          ..write('unitName: $unitName, ')
-          ..write('unitAbbreviation: $unitAbbreviation, ')
+          ..write('config: $config, ')
           ..write('currentStreak: $currentStreak, ')
           ..write('longestStreak: $longestStreak, ')
           ..write('createdAt: $createdAt, ')
@@ -1382,6 +1325,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $EntriesTable entries = $EntriesTable(this);
   late final $RecentActivityView recentActivity = $RecentActivityView(this);
   late final $EntryStatsView entryStats = $EntryStatsView(this);
+  late final Index entryIndex = Index(
+    'entry_index',
+    'CREATE INDEX entry_index ON entries (date)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1391,6 +1338,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     entries,
     recentActivity,
     entryStats,
+    entryIndex,
   ];
   @override
   DriftDatabaseOptions get options =>
@@ -1403,8 +1351,7 @@ typedef $$TrackersTableCreateCompanionBuilder =
       required String title,
       Value<String?> description,
       required StreakType streakType,
-      Value<String?> unitName,
-      Value<String?> unitAbbreviation,
+      required TrackerConfig config,
       Value<int> currentStreak,
       Value<int> longestStreak,
       Value<DateTime> createdAt,
@@ -1417,8 +1364,7 @@ typedef $$TrackersTableUpdateCompanionBuilder =
       Value<String> title,
       Value<String?> description,
       Value<StreakType> streakType,
-      Value<String?> unitName,
-      Value<String?> unitAbbreviation,
+      Value<TrackerConfig> config,
       Value<int> currentStreak,
       Value<int> longestStreak,
       Value<DateTime> createdAt,
@@ -1480,14 +1426,10 @@ class $$TrackersTableFilterComposer
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
 
-  ColumnFilters<String> get unitName => $composableBuilder(
-    column: $table.unitName,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get unitAbbreviation => $composableBuilder(
-    column: $table.unitAbbreviation,
-    builder: (column) => ColumnFilters(column),
+  ColumnWithTypeConverterFilters<TrackerConfig, TrackerConfig, String>
+  get config => $composableBuilder(
+    column: $table.config,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<int> get currentStreak => $composableBuilder(
@@ -1565,13 +1507,8 @@ class $$TrackersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get unitName => $composableBuilder(
-    column: $table.unitName,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get unitAbbreviation => $composableBuilder(
-    column: $table.unitAbbreviation,
+  ColumnOrderings<String> get config => $composableBuilder(
+    column: $table.config,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -1622,13 +1559,8 @@ class $$TrackersTableAnnotationComposer
         builder: (column) => column,
       );
 
-  GeneratedColumn<String> get unitName =>
-      $composableBuilder(column: $table.unitName, builder: (column) => column);
-
-  GeneratedColumn<String> get unitAbbreviation => $composableBuilder(
-    column: $table.unitAbbreviation,
-    builder: (column) => column,
-  );
+  GeneratedColumnWithTypeConverter<TrackerConfig, String> get config =>
+      $composableBuilder(column: $table.config, builder: (column) => column);
 
   GeneratedColumn<int> get currentStreak => $composableBuilder(
     column: $table.currentStreak,
@@ -1704,8 +1636,7 @@ class $$TrackersTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<StreakType> streakType = const Value.absent(),
-                Value<String?> unitName = const Value.absent(),
-                Value<String?> unitAbbreviation = const Value.absent(),
+                Value<TrackerConfig> config = const Value.absent(),
                 Value<int> currentStreak = const Value.absent(),
                 Value<int> longestStreak = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -1716,8 +1647,7 @@ class $$TrackersTableTableManager
                 title: title,
                 description: description,
                 streakType: streakType,
-                unitName: unitName,
-                unitAbbreviation: unitAbbreviation,
+                config: config,
                 currentStreak: currentStreak,
                 longestStreak: longestStreak,
                 createdAt: createdAt,
@@ -1730,8 +1660,7 @@ class $$TrackersTableTableManager
                 required String title,
                 Value<String?> description = const Value.absent(),
                 required StreakType streakType,
-                Value<String?> unitName = const Value.absent(),
-                Value<String?> unitAbbreviation = const Value.absent(),
+                required TrackerConfig config,
                 Value<int> currentStreak = const Value.absent(),
                 Value<int> longestStreak = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -1742,8 +1671,7 @@ class $$TrackersTableTableManager
                 title: title,
                 description: description,
                 streakType: streakType,
-                unitName: unitName,
-                unitAbbreviation: unitAbbreviation,
+                config: config,
                 currentStreak: currentStreak,
                 longestStreak: longestStreak,
                 createdAt: createdAt,
