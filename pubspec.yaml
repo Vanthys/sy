@@ -50,8 +50,10 @@ dependencies:
       url: https://github.com/laurencetroyv/json_theme.git
       path: packages/json_theme
       ref: main
-  material_color_utilities: ^0.11.1
+  material_color_utilities: 0.13.0
   flutter_launcher_icons: ^0.14.4
+  flutter_riverpod: ^2.6.1
+  share_plus: ^12.0.1
 
 dev_dependencies:
   flutter_test:

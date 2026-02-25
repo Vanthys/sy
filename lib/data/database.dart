@@ -51,43 +51,14 @@ class Entries extends Table {
       dateTime().withDefault(currentDateAndTime).named('updated_at')();
 }
 
-abstract class RecentActivity extends View {
-  Entries get entries;
-
-  Expression<String> get trackerId => entries.tracker;
-  Expression<DateTime> get date => entries.date;
-  Expression<double> get totalQuantity => entries.quantity.sum();
-  Expression<DateTime> get fromDate =>
-      Variable(DateTime.now().subtract(const Duration(days: 28)));
-
-  @override
-  Query as() => select([trackerId, date, totalQuantity, fromDate]).from(entries)
-    ..where(entries.date.isBiggerOrEqual(fromDate))
-    ..orderBy([OrderingTerm.asc(entries.date.date)]);
-}
-
-abstract class EntryStats extends View {
-  Entries get entries;
-
-  Expression<String> get trackerId => entries.tracker;
-  Expression<int> get totalEntries => entries.id.count();
-  Expression<DateTime> get lastEntryDate => entries.date.max();
-
-  @override
-  Query as() =>
-      select([trackerId, totalEntries, lastEntryDate]).from(entries)
-        ..groupBy([trackerId]);
-}
-
-@DriftDatabase(tables: [Trackers, Entries], views: [RecentActivity, EntryStats])
+@DriftDatabase(tables: [Trackers, Entries])
 class AppDatabase extends _$AppDatabase {
-  // After generating code, this class needs to define a `schemaVersion` getter
-  // and a constructor telling drift where the database should be stored.
-  // These are described in the getting started guide: https://drift.simonbinder.eu/setup/
+  static const String dbName = 'trackers.sqlite';
+
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -95,13 +66,17 @@ class AppDatabase extends _$AppDatabase {
       await m.createAll();
     },
     onUpgrade: (m, from, to) async {
-      print(
-        '⚠️ Clearing and recreating database (from version $from to $to)...',
-      );
-      for (final table in allTables) {
-        await m.deleteTable(table.actualTableName);
+      print('Upgrading database from version $from to $to...');
+
+      if (from < 6) {
+        // Cleanup: remove old views that were using hardcoded dates
+        // and potentially stale indices.
+        await m.issueCustomQuery('DROP VIEW IF EXISTS recent_activity;');
+        await m.issueCustomQuery('DROP VIEW IF EXISTS entry_stats;');
+        await m.issueCustomQuery('DROP INDEX IF EXISTS entry_index;');
+
+        await m.createAll();
       }
-      await m.createAll();
     },
     beforeOpen: (details) async {
       print('Database ready (version ${details.versionNow})');
@@ -109,16 +84,12 @@ class AppDatabase extends _$AppDatabase {
   );
 
   static QueryExecutor _openConnection() {
-    getApplicationSupportDirectory().then((dir) => print('DB Path: $dir'));
-
     return driftDatabase(
-      name: 'trackers',
+      name:
+          'trackers', // uses dbName internally if not provided, but 'trackers' is the base name
       native: const DriftNativeOptions(
-        // By default, `driftDatabase` from `package:drift_flutter` stores the
-        // database files in `getApplicationDocumentsDirectory()`.
         databaseDirectory: getApplicationSupportDirectory,
       ),
-      // If you need web support, see https://drift.simonbinder.eu/platforms/web/
     );
   }
 }

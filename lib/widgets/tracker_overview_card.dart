@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '/data/database.dart';
-import '/data/entry_repository.dart';
+import '/logic/tracker_overview_provider.dart';
+import '/utils/color_utils.dart';
 
-class TrackerOverviewCard extends StatelessWidget {
+class TrackerOverviewCard extends ConsumerWidget {
   const TrackerOverviewCard({
     super.key,
     required this.tracker,
-    required this.database,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
 
   final Tracker tracker;
-  final AppDatabase database;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -22,70 +22,45 @@ class TrackerOverviewCard extends StatelessWidget {
   static const int _gridCols = 7;
 
   @override
-  Widget build(BuildContext context) {
-    final repo = EntryRepository(database);
-    final now = DateTime.now();
-    final from = DateTime(now.year, now.month - 1, now.day);
-
+  Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
-    final accent = tracker.streakType == StreakType.continued
-        ? cs.primary
-        : cs.tertiary;
+    final accent =
+        ColorUtils.parseHexColor(tracker.config.streakColor) ??
+        (tracker.streakType == StreakType.continued ? cs.primary : cs.tertiary);
 
-    return StreamBuilder<List<Entry>>(
-      stream: repo.watchEntriesInRange(tracker.id, from, now),
-      builder: (context, snapshot) {
-        final entries = snapshot.data ?? [];
-        // Inside the StreamBuilder:
-final now = DateTime.now();
-final start = now.subtract(const Duration(days: 27));
+    final asyncData = ref.watch(trackerOverviewProvider(tracker.id));
 
-// Create map of all last 28 days initialized to 0
-final dayMap = {
-  for (int i = 0; i < 28; i++)
-    DateTime(start.year, start.month, start.day + i): 0.0
-};
-
-// Fill in tracked quantities
-for (final entry in entries) {
-  final d = DateTime(entry.date.year, entry.date.month, entry.date.day);
-  if (d.isAfter(start.subtract(const Duration(days: 1))) &&
-      d.isBefore(now.add(const Duration(days: 1)))) {
-    dayMap[d] = entry.quantity;
-  }
-}
-
-// Convert to ordered list oldest → newest
-final recentActivity = dayMap.entries.toList()
-  ..sort((a, b) => a.key.compareTo(b.key));
-final dailyValues = recentActivity.map((e) => e.value).toList().reversed.toList();
-
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8), // small gap
-          child: Material(
-            color: cs.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(context, accent),
-                    const SizedBox(height: 12),
-                    if (dailyValues.isNotEmpty)
-                      _buildGrid(context, dailyValues, accent),
-                  ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8), // small gap
+      child: Material(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context, accent),
+                const SizedBox(height: 12),
+                asyncData.when(
+                  data: (dailyValues) => dailyValues.isNotEmpty
+                      ? _buildGrid(context, dailyValues, accent)
+                      : const SizedBox.shrink(),
+                  loading: () => const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (err, stack) => const Text('Error loading history'),
                 ),
-              ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -104,10 +79,11 @@ final dailyValues = recentActivity.map((e) => e.value).toList().reversed.toList(
           height: 36,
           margin: const EdgeInsets.only(right: 12),
           decoration: BoxDecoration(
-            color: (tracker.streakType == StreakType.continued
-                    ? cs.primaryContainer
-                    : cs.tertiaryContainer)
-                .withValues(alpha: 0.30),
+            color:
+                (tracker.streakType == StreakType.continued
+                        ? cs.primaryContainer
+                        : cs.tertiaryContainer)
+                    .withValues(alpha: 0.30),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -231,11 +207,7 @@ class _Stat extends StatelessWidget {
   final String label;
   final Color color;
 
-  const _Stat({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
+  const _Stat({required this.icon, required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -247,10 +219,9 @@ class _Stat extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           label,
-          style: Theme.of(context)
-              .textTheme
-              .labelSmall
-              ?.copyWith(color: cs.onSurfaceVariant),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
         ),
       ],
     );

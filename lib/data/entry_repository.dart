@@ -18,21 +18,26 @@ class EntryRepository {
     final normalized = DateTime(date.year, date.month, date.day);
 
     // Try to find existing record for that date
-    final existing = await (db.select(db.entries)
-          ..where((e) => e.tracker.equals(trackerId))
-          ..where((e) => e.date.equals(normalized)))
-        .getSingleOrNull();
+    final existing =
+        await (db.select(db.entries)
+              ..where((e) => e.tracker.equals(trackerId))
+              ..where((e) => e.date.equals(normalized)))
+            .getSingleOrNull();
 
     if (amount > 0) {
       if (existing != null) {
-        await (db.update(db.entries)..where((e) => e.id.equals(existing.id))).write(
+        await (db.update(
+          db.entries,
+        )..where((e) => e.id.equals(existing.id))).write(
           EntriesCompanion(
             quantity: Value(amount),
             updatedAt: Value(DateTime.now()),
           ),
         );
       } else {
-        await db.into(db.entries).insert(
+        await db
+            .into(db.entries)
+            .insert(
               EntriesCompanion(
                 tracker: Value(trackerId),
                 date: Value(normalized),
@@ -43,7 +48,9 @@ class EntryRepository {
             );
       }
     } else if (existing != null) {
-      await (db.delete(db.entries)..where((e) => e.id.equals(existing.id))).go();
+      await (db.delete(
+        db.entries,
+      )..where((e) => e.id.equals(existing.id))).go();
     }
 
     // 🟢 NEW: Update streak stats after any change
@@ -59,8 +66,9 @@ class EntryRepository {
 
   Future<void> deleteEntry(int id) async {
     // 🟡 Get trackerId before deleting
-    final entry =
-        await (db.select(db.entries)..where((e) => e.id.equals(id))).getSingleOrNull();
+    final entry = await (db.select(
+      db.entries,
+    )..where((e) => e.id.equals(id))).getSingleOrNull();
     if (entry == null) return;
 
     await (db.delete(db.entries)..where((e) => e.id.equals(id))).go();
@@ -77,9 +85,9 @@ class EntryRepository {
     final toInclusive = to.add(const Duration(days: 1));
 
     final query = (db.select(db.entries)
-          ..where((e) => e.tracker.equals(trackerId))
-          ..where((e) => e.date.isBetweenValues(from, toInclusive))
-          ..orderBy([(e) => OrderingTerm.desc(e.date)]));
+      ..where((e) => e.tracker.equals(trackerId))
+      ..where((e) => e.date.isBetweenValues(from, toInclusive))
+      ..orderBy([(e) => OrderingTerm.desc(e.date)]));
     return query.watch();
   }
 
@@ -100,13 +108,13 @@ class EntryRepository {
   // 🔥 NEW — Streak Recalculation & Tracker Update
   // ------------------------------------------------------------
   Future<void> _updateTrackerStreaks(String trackerId) async {
-    final tracker = await (db.select(db.trackers)
-          ..where((t) => t.id.equals(trackerId)))
-        .getSingleOrNull();
+    final tracker = await (db.select(
+      db.trackers,
+    )..where((t) => t.id.equals(trackerId))).getSingleOrNull();
     if (tracker == null) return;
 
     final entries = await loadEntries(trackerId);
-    final (current, longest) = _computeStreaks(tracker.streakType, entries);
+    final (current, longest) = _computeStreaks(tracker, entries);
 
     await (db.update(db.trackers)..where((t) => t.id.equals(trackerId))).write(
       TrackersCompanion(
@@ -117,15 +125,22 @@ class EntryRepository {
     );
   }
 
-    (int current, int longest) _computeStreaks(
-      StreakType type, List<Entry> entries) {
+  (int current, int longest) _computeStreaks(
+    Tracker tracker,
+    List<Entry> entries,
+  ) {
+    final type = tracker.streakType;
+    final createdAt = tracker.createdAt;
+
     if (entries.isEmpty) {
       // continued → no entries → no streak
       // abstinence → no entries → full streak from start of tracking
       final today = DateTime.now();
-      final start = today; // you can later persist tracker.createdAt if desired
+      final start = DateTime(createdAt.year, createdAt.month, createdAt.day);
       final daysSinceStart = today.difference(start).inDays + 1;
-      return type == StreakType.continued ? (0, 0) : (daysSinceStart, daysSinceStart);
+      return type == StreakType.continued
+          ? (0, 0)
+          : (daysSinceStart, daysSinceStart);
     }
 
     // Sort ascending by date
@@ -133,7 +148,9 @@ class EntryRepository {
     final today = DateTime.now();
 
     // Normalize all entry dates (midnight)
-    final entryDays = sorted.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+    final entryDays = sorted
+        .map((d) => DateTime(d.year, d.month, d.day))
+        .toSet();
 
     // --------------------------------------------------------
     // Compute Longest Streak
@@ -141,13 +158,24 @@ class EntryRepository {
     int longest = 0;
     int streak = 0;
 
-    // We iterate day-by-day for clarity and correctness
-    for (DateTime d = entryDays.first;
-        !d.isAfter(today);
-        d = d.add(const Duration(days: 1))) {
+    // Start from the tracker's creation day or the first entry, whichever is EARLIER
+    // Actually, streaks usually start from tracking begins.
+    final trackingStart = DateTime(
+      createdAt.year,
+      createdAt.month,
+      createdAt.day,
+    );
+    final firstRelevantDay = trackingStart.isBefore(entryDays.first)
+        ? trackingStart
+        : entryDays.first;
+
+    for (
+      DateTime d = firstRelevantDay;
+      !d.isAfter(today);
+      d = d.add(const Duration(days: 1))
+    ) {
       final hasEntry = entryDays.contains(d);
-      final goodDay =
-          type == StreakType.continued ? hasEntry : !hasEntry;
+      final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
 
       if (goodDay) {
         streak++;
@@ -165,8 +193,7 @@ class EntryRepository {
 
     while (true) {
       final hasEntry = entryDays.contains(curDay);
-      final goodDay =
-          type == StreakType.continued ? hasEntry : !hasEntry;
+      final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
 
       if (!goodDay) break;
       current++;
@@ -175,5 +202,4 @@ class EntryRepository {
 
     return (current, longest);
   }
-
 }

@@ -1,29 +1,24 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '/data/database.dart';
-import '/data/tracker_repository.dart';
+import '/data/providers.dart';
 import '/widgets/tracker_editor_sheet.dart';
 import '/widgets/tracker_overview_card.dart';
 import 'tracker_calendar_screen.dart';
 
-class TrackerListScreen extends StatefulWidget {
-  const TrackerListScreen({super.key, required this.database});
+class TrackerListScreen extends ConsumerWidget {
+  const TrackerListScreen({super.key});
 
-  final AppDatabase database;
-
-  @override
-  State<TrackerListScreen> createState() => _TrackerListScreenState();
-}
-
-class _TrackerListScreenState extends State<TrackerListScreen> {
-  late final TrackerRepository _repo;
-
-  @override
-  void initState() {
-    super.initState();
-    _repo = TrackerRepository(widget.database);
-  }
-
-  Future<void> _openTrackerEditor({Tracker? existing}) async {
+  Future<void> _openTrackerEditor(
+    BuildContext context,
+    WidgetRef ref, {
+    Tracker? existing,
+  }) async {
+    final repo = ref.read(trackerRepositoryProvider);
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -31,13 +26,10 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => TrackerEditorSheet(
-        repo: _repo,
-        existingTracker: existing,
-      ),
+      builder: (_) => TrackerEditorSheet(repo: repo, existingTracker: existing),
     );
 
-    if (result == true && mounted) {
+    if (result == true && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -48,7 +40,11 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
     }
   }
 
-  Future<void> _deleteTracker(Tracker t) async {
+  Future<void> _deleteTracker(
+    BuildContext context,
+    WidgetRef ref,
+    Tracker t,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -71,24 +67,66 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
     );
 
     if (confirmed == true) {
-      await _repo.deleteTracker(t.id);
+      await ref.read(trackerRepositoryProvider).deleteTracker(t.id);
+    }
+  }
+
+  Future<void> _exportDatabase(BuildContext context) async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final dbPath = p.join(dir.path, AppDatabase.dbName);
+      final file = File(dbPath);
+
+      if (await file.exists()) {
+        final box = context.findRenderObject() as RenderBox?;
+        await Share.shareXFiles(
+          [XFile(dbPath)],
+          text: 'My Streak Tracker Backup',
+          sharePositionOrigin: box != null
+              ? box.localToGlobal(Offset.zero) & box.size
+              : null,
+        );
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Database file not found!')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to export: $e')));
+      }
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repo = ref.watch(trackerRepositoryProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Trackers')),
+      appBar: AppBar(
+        title: const Text('Trackers'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            tooltip: 'Export Database',
+            onPressed: () => _exportDatabase(context),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openTrackerEditor(),
+        onPressed: () => _openTrackerEditor(context, ref),
         icon: const Icon(Icons.add),
         label: const Text('New Tracker'),
       ),
       body: StreamBuilder<List<Tracker>>(
-        stream: _repo.watchAllTrackers(),
+        stream: repo.watchAllTrackers(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return const Center(child: Text('Error loading trackers'));
+            return Center(child: Text('Error: ${snapshot.error}'));
           }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -103,7 +141,7 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
                   const Text('No trackers yet.'),
                   const SizedBox(height: 8),
                   FilledButton(
-                    onPressed: () => _openTrackerEditor(),
+                    onPressed: () => _openTrackerEditor(context, ref),
                     child: const Text('Create your first tracker'),
                   ),
                 ],
@@ -120,7 +158,6 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
 
               return TrackerOverviewCard(
                 tracker: tracker,
-                database: widget.database, // 🔗 inject database for auto-loading
                 onTap: () {
                   Navigator.push(
                     context,
@@ -128,13 +165,13 @@ class _TrackerListScreenState extends State<TrackerListScreen> {
                       builder: (_) => TrackerCalendarScreen(
                         trackerId: tracker.id,
                         trackerTitle: tracker.title,
-                        database: widget.database,
                       ),
                     ),
                   );
                 },
-                onEdit: () => _openTrackerEditor(existing: tracker),
-                onDelete: () => _deleteTracker(tracker),
+                onEdit: () =>
+                    _openTrackerEditor(context, ref, existing: tracker),
+                onDelete: () => _deleteTracker(context, ref, tracker),
               );
             },
           );

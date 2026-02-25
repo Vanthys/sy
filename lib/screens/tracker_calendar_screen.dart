@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/providers.dart';
 import '../widgets/tracker_calendar.dart';
 
-class TrackerCalendarScreen extends StatelessWidget {
+class TrackerCalendarScreen extends ConsumerWidget {
   const TrackerCalendarScreen({
     super.key,
     required this.trackerId,
     required this.trackerTitle,
-    required this.database,
   });
 
   final String trackerId;
   final String trackerTitle;
-  final AppDatabase database;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final database = ref.watch(databaseProvider);
+
     return Scaffold(
       appBar: AppBar(title: Text(trackerTitle)),
       body: FutureBuilder<Tracker?>(
@@ -42,11 +44,7 @@ class TrackerCalendarScreen extends StatelessWidget {
             return const Center(child: Text('Tracker not found.'));
           }
 
-          return TrackerCalendar(
-            trackerId: trackerId,
-            database: database,
-            streakType: tracker.streakType,
-          );
+          return TrackerCalendar(tracker: tracker);
         },
       ),
     );

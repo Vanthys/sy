@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sy3/data/database.dart';
 
-import 'tracker_calendar.dart';
+import '../logic/tracker_calendar_provider.dart';
 
 class MonthSection extends StatelessWidget {
   const MonthSection({
@@ -82,8 +82,9 @@ class _DayBlock extends StatelessWidget {
         ? '${DateFormat('yyyy-MM-dd').format(dayData.date)} - ${dayData.amount} ${unitAbbreviation ?? 'units'}'
         : DateFormat('yyyy-MM-dd').format(dayData.date);
 
-    final backgroundColor =
-        hasData ? dayData.color : cs.surfaceContainerHighest;
+    final backgroundColor = hasData
+        ? dayData.color
+        : cs.surfaceContainerHighest;
     final textColor = hasData ? cs.onSurfaceVariant : cs.onSurfaceVariant;
 
     final bool inStreak = dayData.inStreak;
@@ -134,8 +135,8 @@ class _DayBlock extends StatelessWidget {
                       color: inStreak
                           ? glowColor // highlight streak text too
                           : hasData
-                              ? textColor
-                              : textColor.withValues(alpha: 0.3),
+                          ? textColor
+                          : textColor.withValues(alpha: 0.3),
                     ),
                     maxLines: 1,
                     softWrap: false,
@@ -164,4 +165,3 @@ class _DayBlock extends StatelessWidget {
     );
   }
 }
-

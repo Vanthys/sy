@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:json_theme/json_theme.dart';
-import 'package:flutter/services.dart'; 
+import 'package:flutter/services.dart';
 import 'dart:convert';
 
-import 'data/database.dart';
 import 'screens/tracker_list_screen.dart';
 
 void main() async {
@@ -19,49 +19,27 @@ void main() async {
   final darkThemeJson = jsonDecode(darkThemeStr);
   final darkTheme = ThemeDecoder.decodeThemeData(darkThemeJson)!;
 
-  runApp(SyApp(
-    lightTheme: lightTheme,
-    darkTheme: darkTheme,
-  ));
+  runApp(
+    ProviderScope(
+      child: SyApp(lightTheme: lightTheme, darkTheme: darkTheme),
+    ),
+  );
 }
 
-class SyApp extends StatefulWidget {
+class SyApp extends StatelessWidget {
   final ThemeData lightTheme;
   final ThemeData darkTheme;
 
-  const SyApp({
-    super.key,
-    required this.lightTheme,
-    required this.darkTheme,
-  });
-
-  @override
-  State<SyApp> createState() => _SyAppState();
-}
-
-class _SyAppState extends State<SyApp> {
-  late final AppDatabase _database;
-
-  @override
-  void initState() {
-    super.initState();
-    _database = AppDatabase();
-  }
-
-  @override
-  void dispose() {
-    _database.close();
-    super.dispose();
-  }
+  const SyApp({super.key, required this.lightTheme, required this.darkTheme});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Streak Tracker',
-      theme: widget.lightTheme,
-      darkTheme: widget.darkTheme,
+      theme: lightTheme,
+      darkTheme: darkTheme,
       themeMode: ThemeMode.system, // Automatically switches
-      home: TrackerListScreen(database: _database),
+      home: const TrackerListScreen(),
     );
   }
 }

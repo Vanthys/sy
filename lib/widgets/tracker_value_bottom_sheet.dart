@@ -50,20 +50,16 @@ class TrackerValueBottomSheet extends StatefulWidget {
 }
 
 class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
-  late double _value; // dial position [0..maxValue]
-  int _baseRotations = 0;
+  late double _totalValue;
   late final TextEditingController _controller;
   Timer? _debounceTimer;
-
-  double get totalValue => _baseRotations * widget.maxValue + _value;
 
   @override
   void initState() {
     super.initState();
-    _baseRotations = (widget.initialAmount ~/ widget.maxValue);
-    _value = (widget.initialAmount % widget.maxValue);
+    _totalValue = widget.initialAmount;
     _controller = TextEditingController(
-      text: totalValue > 0 ? _formatValue(totalValue) : '',
+      text: _totalValue > 0 ? _formatValue(_totalValue) : '',
     );
   }
 
@@ -112,13 +108,12 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
             const SizedBox(height: 24),
             Center(
               child: ScrubbableDialField(
-                value: _value,
+                value: widget.initialAmount,
                 maxValue: widget.maxValue,
                 unitName: widget.unitName,
                 onChanged: (newTotal) {
                   setState(() {
-                    _baseRotations = (newTotal ~/ widget.maxValue);
-                    _value = (newTotal % widget.maxValue);
+                    _totalValue = newTotal;
                   });
                   _debounceTimer?.cancel();
                   _debounceTimer = Timer(const Duration(milliseconds: 200), () {
@@ -140,7 +135,7 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () => Navigator.pop(context, totalValue),
+                    onPressed: () => Navigator.pop(context, _totalValue),
                     style: FilledButton.styleFrom(
                       backgroundColor: colorScheme.primary,
                     ),
