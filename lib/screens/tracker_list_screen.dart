@@ -10,8 +10,20 @@ import '/widgets/tracker_editor_sheet.dart';
 import '/widgets/tracker_overview_card.dart';
 import 'tracker_calendar_screen.dart';
 
-class TrackerListScreen extends ConsumerWidget {
+class TrackerListScreen extends ConsumerStatefulWidget {
   const TrackerListScreen({super.key});
+
+  @override
+  ConsumerState<TrackerListScreen> createState() => _TrackerListScreenState();
+}
+
+class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Refresh streaks quietly in the background after the first frame
+    Future.microtask(() => ref.read(refreshStreaksProvider.future));
+  }
 
   Future<void> _openTrackerEditor(
     BuildContext context,
@@ -104,10 +116,8 @@ class TrackerListScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final repo = ref.watch(trackerRepositoryProvider);
-    // Refresh streaks on load
-    ref.watch(refreshStreaksProvider);
 
     return Scaffold(
       appBar: AppBar(

@@ -4,21 +4,25 @@ class ColorUtils {
   static Color getColorForAmount(
     double amount, {
     List<String>? gradientColors,
+    List<Color>? preParsedColors,
     double? maxValue,
   }) {
     if (amount <= 0) return Colors.grey.shade200;
 
     List<Color> colors;
-    if (gradientColors == null || gradientColors.isEmpty) {
+    if (preParsedColors != null && preParsedColors.isNotEmpty) {
+      colors = preParsedColors;
+    } else if (gradientColors == null || gradientColors.isEmpty) {
       colors = [const Color(0xFF2196F3), const Color(0xFF2196F3)]; // fallback
     } else {
       colors = gradientColors.map(parseHexColor).whereType<Color>().toList();
-      if (colors.isEmpty) {
-        colors = [const Color(0xFF2196F3), const Color(0xFF2196F3)];
-      }
-      if (colors.length == 1) {
-        colors.add(colors.first);
-      }
+    }
+
+    if (colors.isEmpty) {
+      colors = [const Color(0xFF2196F3), const Color(0xFF2196F3)];
+    }
+    if (colors.length == 1) {
+      colors = [colors.first, colors.first];
     }
 
     final ratio = (amount / (maxValue ?? 15.0)).clamp(0.0, 1.0);

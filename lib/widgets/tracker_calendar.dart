@@ -52,37 +52,55 @@ class _TrackerCalendarState extends ConsumerState<TrackerCalendar> {
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.all(16),
-          sliver: SliverList.separated(
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemCount: months.length,
-            itemBuilder: (context, index) {
-              final month = months[index];
-              return MonthSection(
-                monthLabel: month.label,
-                days: month.days,
-                unitAbbreviation: widget.tracker.config.unit,
-                streakColors: widget.tracker.config.streakColors,
-                onDayTap: (dayData) async {
-                  final result = await showTrackerValueBottomSheet(
-                    context: context,
-                    date: dayData.date,
-                    initialAmount: dayData.entry?.quantity ?? 0,
-                    unitName: widget.tracker.config.unit ?? 'units',
-                    maxValue: widget.tracker.config.maxValue ?? 12,
-                  );
-                  if (result != null) {
-                    await ref
-                        .read(trackerCalendarProvider(widget.tracker))
-                        .saveEntry(dayData.date, result);
-                  }
-                },
-                streakType: widget.tracker.streakType,
-              );
-            },
+        for (final month in months) ...[
+          // Month Header
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+            sliver: SliverToBoxAdapter(
+              child: Text(
+                month.label,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
           ),
-        ),
+          // Days Grid
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                crossAxisSpacing: 4,
+                mainAxisSpacing: 4,
+              ),
+              delegate: SliverChildBuilderDelegate((context, dayIndex) {
+                final dayData = month.days[dayIndex];
+                return DayBlock(
+                  dayData: dayData,
+                  unitAbbreviation: widget.tracker.config.unit,
+                  onTap: () async {
+                    final result = await showTrackerValueBottomSheet(
+                      context: context,
+                      date: dayData.date,
+                      initialAmount: dayData.entry?.quantity ?? 0,
+                      unitName: widget.tracker.config.unit ?? 'units',
+                      maxValue: widget.tracker.config.maxValue ?? 12,
+                    );
+                    if (result != null) {
+                      await ref
+                          .read(trackerCalendarProvider(widget.tracker))
+                          .saveEntry(dayData.date, result);
+                    }
+                  },
+                  streakType: widget.tracker.streakType,
+                  streakColors: widget.tracker.config.streakColors,
+                  columnIndex: dayIndex % 7,
+                );
+              }, childCount: month.days.length),
+            ),
+          ),
+        ],
 
         // Loading indicator
         SliverToBoxAdapter(

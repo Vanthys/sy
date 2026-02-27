@@ -16,6 +16,8 @@ class DayData {
     this.entry,
     required this.amount,
     required this.color,
+    required this.streakGradient,
+    required this.tooltip,
     this.inStreak = false,
     this.isStreakStart = false,
     this.isStreakEnd = false,
@@ -25,6 +27,8 @@ class DayData {
   final Entry? entry;
   final double amount;
   final Color color;
+  final List<Color> streakGradient;
+  final String tooltip;
   final bool inStreak;
   final bool isStreakStart;
   final bool isStreakEnd;
@@ -82,6 +86,10 @@ class TrackerCalendarNotifier extends ChangeNotifier {
   StreamSubscription<List<Entry>>? _entriesSub;
   List<Entry> _entries = [];
 
+  // Cached configuration colors (pre-parsed once)
+  late final List<Color> _streakColors;
+  late final List<Color> _intensityColors;
+
   CalendarState state = const CalendarState(months: []);
   bool isLoading = true;
 
@@ -89,7 +97,33 @@ class TrackerCalendarNotifier extends ChangeNotifier {
     final now = DateTime.now();
     _latestMonth = DateTime(now.year, now.month, 1);
     _earliestLoaded = DateTime(now.year, now.month - (_monthsPerBatch - 1), 1);
+
+    // Pre-parse config colors once to avoid hex parsing in the loop
+    _streakColors = _parseStreakColors();
+    _intensityColors = _parseIntensityColors();
+
     _setupStream();
+  }
+
+  List<Color> _parseStreakColors() {
+    final colors = tracker.config.streakColors;
+    if (colors == null || colors.isEmpty) {
+      return [const Color(0xFF2196F3), const Color(0xFF2196F3)];
+    }
+    final parsed = colors
+        .map(ColorUtils.parseHexColor)
+        .whereType<Color>()
+        .toList();
+    if (parsed.isEmpty)
+      return [const Color(0xFF2196F3), const Color(0xFF2196F3)];
+    if (parsed.length == 1) return [parsed.first, parsed.first];
+    return parsed;
+  }
+
+  List<Color> _parseIntensityColors() {
+    final colors = tracker.config.intensityColors;
+    if (colors == null || colors.isEmpty) return [];
+    return colors.map(ColorUtils.parseHexColor).whereType<Color>().toList();
   }
 
   @override
@@ -114,10 +148,126 @@ class TrackerCalendarNotifier extends ChangeNotifier {
   }
 
   void _updateState() {
-    final months = _groupEntriesIntoMonths(_entries);
+    // We removed 'compute' (Isolate) because spawning was causing a 200-500ms freeze on the main thread.
+    // For small sets (6-24 months), synchronous grouping on the main thread is actually faster
+    // than the overhead of serialization and isolate setup.
+    final months = _generateMonthsData();
     state = state.copyWith(months: months);
     isLoading = false;
     notifyListeners();
+  }
+
+  List<MonthData> _generateMonthsData() {
+    final entryMap = <DateTime, Entry>{
+      for (final e in _entries)
+        DateTime(e.date.year, e.date.month, e.date.day): e,
+    };
+
+    final meaningfulEntries = _entries
+        .where((e) => e.quantity.round() > 0)
+        .toList();
+    final entryDatesSet = meaningfulEntries
+        .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
+        .toSet();
+
+    // Streak Calculation
+    final today = DateTime.now();
+    final todayMidnight = DateTime(today.year, today.month, today.day);
+
+    final createdAt = tracker.createdAt;
+    final createdAtMidnight = DateTime(
+      createdAt.year,
+      createdAt.month,
+      createdAt.day,
+    );
+
+    // Determine Tracking Origin (earliest of creation or data)
+    final sortedDays = entryDatesSet.toList()..sort();
+    final earliestEntry = sortedDays.isEmpty
+        ? createdAtMidnight
+        : sortedDays.first;
+    final trackingStartDay = earliestEntry.isBefore(createdAtMidnight)
+        ? earliestEntry
+        : createdAtMidnight;
+
+    final Set<DateTime> streakDatesSet = {};
+    DateTime current = todayMidnight;
+
+    if (tracker.streakType == StreakType.continued &&
+        !entryDatesSet.contains(current)) {
+      current = current.subtract(const Duration(days: 1));
+    }
+
+    bool isGoodDay(DateTime d) {
+      final hasEntry = entryDatesSet.contains(d);
+      return tracker.streakType == StreakType.continued ? hasEntry : !hasEntry;
+    }
+
+    while (isGoodDay(current) && !current.isBefore(trackingStartDay)) {
+      streakDatesSet.add(current);
+      current = current.subtract(const Duration(days: 1));
+    }
+
+    // Grouping
+    final months = <MonthData>[];
+    DateTime month = _latestMonth;
+
+    while (month.isAfter(_earliestLoaded) ||
+        month.isAtSameMomentAs(_earliestLoaded)) {
+      final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
+      final monthEnd = DateTime(month.year, month.month, daysInMonth);
+      final maxVisibleDate = monthEnd.isAfter(todayMidnight)
+          ? todayMidnight
+          : monthEnd;
+      final visibleDaysCount = maxVisibleDate.day;
+
+      final days = List.generate(visibleDaysCount, (i) {
+        final date = DateTime(month.year, month.month, visibleDaysCount - i);
+        final entry = entryMap[date];
+        final amount = entry?.quantity ?? 0.0;
+        final inStreak = streakDatesSet.contains(date);
+
+        bool isStart = false;
+        bool isEnd = false;
+
+        if (inStreak) {
+          final yesterday = date.subtract(const Duration(days: 1));
+          final tomorrow = date.add(const Duration(days: 1));
+          isStart = !streakDatesSet.contains(yesterday);
+          isEnd = !streakDatesSet.contains(tomorrow);
+        }
+
+        final tooltip =
+            '${DateFormat('yyyy-MM-dd').format(date)}${amount > 0 ? ' - $amount ${tracker.config.unit ?? 'units'}' : ''}';
+
+        return DayData(
+          date: date,
+          entry: entry,
+          amount: amount,
+          tooltip: tooltip,
+          color: ColorUtils.getColorForAmount(
+            amount,
+            preParsedColors: _intensityColors,
+            maxValue: tracker.config.maxValue,
+          ),
+          streakGradient: _streakColors,
+          inStreak: inStreak,
+          isStreakStart: isStart,
+          isStreakEnd: isEnd,
+        );
+      }).toList();
+
+      months.add(
+        MonthData(
+          monthStart: month,
+          label: DateFormat('MMMM yyyy').format(month),
+          days: days,
+        ),
+      );
+
+      month = DateTime(month.year, month.month - 1, 1);
+    }
+    return months;
   }
 
   Future<void> loadMorePastMonths() async {
@@ -151,131 +301,39 @@ class TrackerCalendarNotifier extends ChangeNotifier {
 
   Future<void> saveEntry(DateTime date, double amount) async {
     final normalized = DateTime(date.year, date.month, date.day);
+
+    // --- Synchronous Optimistic Update ---
+    final now = DateTime.now();
+    final index = _entries.indexWhere(
+      (e) =>
+          e.date.year == normalized.year &&
+          e.date.month == normalized.month &&
+          e.date.day == normalized.day,
+    );
+
+    if (index != -1) {
+      _entries[index] = _entries[index].copyWith(
+        quantity: amount,
+        updatedAt: now,
+      );
+    } else {
+      _entries.add(
+        Entry(
+          id: -1,
+          tracker: tracker.id,
+          date: normalized,
+          quantity: amount,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+    }
+
+    _updateState();
+    // ------------------------------------
+
     await ref
         .read(entryRepositoryProvider)
         .saveEntry(tracker.id, normalized, amount);
-  }
-
-  // ----------------------------------------
-  // Helpers
-  // ----------------------------------------
-  List<MonthData> _groupEntriesIntoMonths(List<Entry> entries) {
-    // Only count entries with meaningful quantity (round to 1+)
-    final meaningfulEntries = entries
-        .where((e) => e.quantity.round() > 0)
-        .toList();
-
-    final entryMap = <DateTime, Entry>{
-      for (final e in meaningfulEntries)
-        DateTime(e.date.year, e.date.month, e.date.day): e,
-    };
-
-    final groupedByMonth = <String, List<Entry>>{};
-    for (final e in meaningfulEntries) {
-      final key = DateFormat('yyyy-MM').format(e.date);
-      groupedByMonth.putIfAbsent(key, () => []).add(e);
-    }
-
-    final streakDatesSet = _computeCurrentStreakDates(
-      tracker.streakType,
-      meaningfulEntries,
-    );
-    final months = <MonthData>[];
-    DateTime month = _latestMonth;
-
-    while (month.isAfter(_earliestLoaded) ||
-        month.isAtSameMomentAs(_earliestLoaded)) {
-      final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
-
-      final today = DateTime.now();
-      final todayMidnight = DateTime(today.year, today.month, today.day);
-      final monthEnd = DateTime(month.year, month.month, daysInMonth);
-      final maxVisibleDate = monthEnd.isAfter(todayMidnight)
-          ? todayMidnight
-          : monthEnd;
-      final visibleDaysCount = maxVisibleDate.day;
-
-      final days = List.generate(visibleDaysCount, (i) {
-        final date = DateTime(month.year, month.month, visibleDaysCount - i);
-        final entry = entryMap[date];
-        final amount = entry?.quantity ?? 0.0;
-        final inStreak = streakDatesSet.contains(date);
-
-        bool isStart = false;
-        bool isEnd = false;
-
-        if (inStreak) {
-          final yesterday = date.subtract(const Duration(days: 1));
-          final tomorrow = date.add(const Duration(days: 1));
-
-          isStart = !streakDatesSet.contains(yesterday);
-          isEnd = !streakDatesSet.contains(tomorrow);
-        }
-
-        return DayData(
-          date: date,
-          entry: entry,
-          amount: amount,
-          color: ColorUtils.getColorForAmount(
-            amount,
-            gradientColors: tracker.config.intensityColors,
-            maxValue: tracker.config.maxValue,
-          ),
-          inStreak: inStreak,
-          isStreakStart: isStart,
-          isStreakEnd: isEnd,
-        );
-      }).toList();
-
-      months.add(
-        MonthData(
-          monthStart: month,
-          label: DateFormat('MMMM yyyy').format(month),
-          days: days,
-        ),
-      );
-
-      month = DateTime(month.year, month.month - 1, 1);
-    }
-
-    return months;
-  }
-
-  Set<DateTime> _computeCurrentStreakDates(
-    StreakType type,
-    List<Entry> entries,
-  ) {
-    if (entries.isEmpty && type == StreakType.continued) return {};
-
-    final entryDates = entries
-        .where((e) => e.quantity.round() > 0)
-        .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
-        .toSet();
-
-    final today = DateTime.now();
-    final todayMidnight = DateTime(today.year, today.month, today.day);
-    final Set<DateTime> streakDays = {};
-
-    DateTime current = todayMidnight;
-
-    // For "continued" streaks, we allow a 1-day buffer (yesterday)
-    if (type == StreakType.continued && !entryDates.contains(current)) {
-      current = current.subtract(const Duration(days: 1));
-    }
-
-    bool isGoodDay(DateTime d) {
-      final hasEntry = entryDates.contains(d);
-      return type == StreakType.continued ? hasEntry : !hasEntry;
-    }
-
-    // Don't go back further than tracker creation or a reasonable limit
-    final limit = tracker.createdAt.subtract(const Duration(days: 1));
-
-    while (isGoodDay(current) && current.isAfter(limit)) {
-      streakDays.add(current);
-      current = current.subtract(const Duration(days: 1));
-    }
-
-    return streakDays;
   }
 }

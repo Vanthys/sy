@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import '/data/database.dart';
 
@@ -107,11 +108,41 @@ class EntryRepository {
   // ------------------------------------------------------------
   // 🔥 NEW — Streak Recalculation & Tracker Update
   // ------------------------------------------------------------
+  // ------------------------------------------------------------
+  // 🔥 NEW — Streak Recalculation & Tracker Update
+  // ------------------------------------------------------------
   Future<void> refreshAllStreaks() async {
     final trackers = await db.select(db.trackers).get();
-    for (final t in trackers) {
-      await updateTrackerStreaks(t.id);
+
+    // Fetch all entries for all trackers in one go to minimize DB calls
+    final allEntries = await db.select(db.entries).get();
+
+    // Group entries by trackerId for the isolate
+    final entryGroups = <String, List<Entry>>{};
+    for (final e in allEntries) {
+      entryGroups.putIfAbsent(e.tracker, () => []).add(e);
     }
+
+    // Run heavy calculations in background isolate
+    final updates = await compute(
+      _recalculateStreaksTask,
+      _StreakBatchPayload(trackers: trackers, entryGroups: entryGroups),
+    );
+
+    // Batch update the DB with results
+    await db.batch((batch) {
+      for (final update in updates) {
+        batch.update(
+          db.trackers,
+          TrackersCompanion(
+            currentStreak: Value(update.current),
+            longestStreak: Value(update.longest),
+            updatedAt: Value(DateTime.now()),
+          ),
+          where: (t) => t.id.equals(update.id),
+        );
+      }
+    });
   }
 
   // ------------------------------------------------------------
@@ -134,88 +165,127 @@ class EntryRepository {
       ),
     );
   }
+}
 
-  (int current, int longest) _computeStreaks(
-    Tracker tracker,
-    List<Entry> entries,
-  ) {
-    final type = tracker.streakType;
-    final createdAt = tracker.createdAt;
-    final trackingStartDay = DateTime(
-      createdAt.year,
-      createdAt.month,
-      createdAt.day,
-    );
+// ------------------------------------------------------------
+// 🏗️ Isolate Helpers for Streak Recalculation
+// ------------------------------------------------------------
 
-    if (entries.isEmpty) {
-      // continued → no entries → no streak
-      // abstinence → no entries → full streak from start of tracking
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final daysSinceStart = today.difference(trackingStartDay).inDays + 1;
-      return type == StreakType.continued
-          ? (0, 0)
-          : (daysSinceStart, daysSinceStart);
-    }
+class _StreakBatchPayload {
+  final List<Tracker> trackers;
+  final Map<String, List<Entry>> entryGroups;
 
-    final today = DateTime.now();
-    final todayMidnight = DateTime(today.year, today.month, today.day);
+  _StreakBatchPayload({required this.trackers, required this.entryGroups});
+}
 
-    // Sort ascending by date & normalize. Only count entries with meaningful quantity.
-    final entryDays = entries
-        .where((e) => e.quantity.round() > 0)
-        .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
-        .toSet();
+class _StreakUpdate {
+  final String id;
+  final int current;
+  final int longest;
 
-    // --------------------------------------------------------
-    // Compute Longest Streak
-    // --------------------------------------------------------
-    int longest = 0;
-    int streak = 0;
+  _StreakUpdate({
+    required this.id,
+    required this.current,
+    required this.longest,
+  });
+}
 
-    // Check trackingStartDay vs the first MEANINGFUL entry
-    final sortedDays = entryDays.toList()..sort();
-    final firstDay =
-        (sortedDays.isEmpty || trackingStartDay.isBefore(sortedDays.first))
-        ? trackingStartDay
-        : sortedDays.first;
+/// Top-level function for background isolate execution
+List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
+  final results = <_StreakUpdate>[];
 
-    for (
-      DateTime d = firstDay;
-      !d.isAfter(todayMidnight);
-      d = DateTime(d.year, d.month, d.day + 1)
-    ) {
-      final hasEntry = entryDays.contains(d);
-      final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
-
-      if (goodDay) {
-        streak++;
-        if (streak > longest) longest = streak;
-      } else {
-        streak = 0;
-      }
-    }
-
-    // --------------------------------------------------------
-    // Compute Current Streak (ending today)
-    // --------------------------------------------------------
-    int current = 0;
-    DateTime curDay = todayMidnight;
-
-    // For continued: if today has no entry, check yesterday to keep streak alive
-    if (type == StreakType.continued && !entryDays.contains(curDay)) {
-      curDay = curDay.subtract(const Duration(days: 1));
-    }
-
-    while (!curDay.isBefore(trackingStartDay)) {
-      final hasEntry = entryDays.contains(curDay);
-      final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
-
-      if (!goodDay) break;
-      current++;
-      curDay = curDay.subtract(const Duration(days: 1));
-    }
-
-    return (current, longest);
+  for (final t in payload.trackers) {
+    final entries = payload.entryGroups[t.id] ?? [];
+    final (current, longest) = _computeStreaks(t, entries);
+    results.add(_StreakUpdate(id: t.id, current: current, longest: longest));
   }
+
+  return results;
+}
+
+(int current, int longest) _computeStreaks(
+  Tracker tracker,
+  List<Entry> entries,
+) {
+  final type = tracker.streakType;
+  final createdAt = tracker.createdAt;
+  final createdAtMidnight = DateTime(
+    createdAt.year,
+    createdAt.month,
+    createdAt.day,
+  );
+
+  final today = DateTime.now();
+  final todayMidnight = DateTime(today.year, today.month, today.day);
+
+  final entryDays = entries
+      .where((e) => e.quantity.round() > 0)
+      .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
+      .toSet();
+
+  // --------------------------------------------------------
+  // Determine Tracking Origin
+  // --------------------------------------------------------
+  // We look for the earliest entry ever logged to allow historical back-logging
+  final sortedDays = entryDays.toList()..sort();
+  final earliestEntry = sortedDays.isEmpty
+      ? createdAtMidnight
+      : sortedDays.first;
+
+  // The official "Tracking Start" is whichever came first: creation or first entry
+  final trackingStartDay = earliestEntry.isBefore(createdAtMidnight)
+      ? earliestEntry
+      : createdAtMidnight;
+
+  if (entries.isEmpty) {
+    final daysSinceStart =
+        todayMidnight.difference(trackingStartDay).inDays + 1;
+    return type == StreakType.continued
+        ? (0, 0)
+        : (daysSinceStart, daysSinceStart);
+  }
+
+  // --------------------------------------------------------
+  // Compute Longest Streak
+  // --------------------------------------------------------
+  int longest = 0;
+  int streak = 0;
+
+  for (
+    DateTime d = trackingStartDay;
+    !d.isAfter(todayMidnight);
+    d = DateTime(d.year, d.month, d.day + 1)
+  ) {
+    final hasEntry = entryDays.contains(d);
+    final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
+
+    if (goodDay) {
+      streak++;
+      if (streak > longest) longest = streak;
+    } else {
+      streak = 0;
+    }
+  }
+
+  // --------------------------------------------------------
+  // Compute Current Streak (ending today)
+  // --------------------------------------------------------
+  int current = 0;
+  DateTime curDay = todayMidnight;
+
+  // For continued: if today has no entry, check yesterday to keep streak alive
+  if (type == StreakType.continued && !entryDays.contains(curDay)) {
+    curDay = curDay.subtract(const Duration(days: 1));
+  }
+
+  while (!curDay.isBefore(trackingStartDay)) {
+    final hasEntry = entryDays.contains(curDay);
+    final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
+
+    if (!goodDay) break;
+    current++;
+    curDay = curDay.subtract(const Duration(days: 1));
+  }
+
+  return (current, longest);
 }
