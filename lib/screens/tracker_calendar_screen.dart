@@ -3,17 +3,64 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../widgets/tracker_calendar.dart';
+import '../widgets/tracker_stats_view.dart';
 
-class TrackerCalendarScreen extends ConsumerWidget {
+class TrackerCalendarScreen extends ConsumerStatefulWidget {
   const TrackerCalendarScreen({super.key, required this.tracker});
 
   final Tracker tracker;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TrackerCalendarScreen> createState() =>
+      _TrackerCalendarScreenState();
+}
+
+class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(tracker.title)),
-      body: TrackerCalendar(tracker: tracker),
+      appBar: AppBar(
+        title: Text(_currentPage == 0 ? widget.tracker.title : 'Statistics'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _currentPage == 0
+                  ? Icons.analytics_outlined
+                  : Icons.calendar_month,
+            ),
+            onPressed: () {
+              _pageController.animateToPage(
+                _currentPage == 0 ? 1 : 0,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+              );
+            },
+          ),
+        ],
+      ),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (page) => setState(() => _currentPage = page),
+        children: [
+          TrackerCalendar(tracker: widget.tracker),
+          TrackerStatsView(tracker: widget.tracker),
+        ],
+      ),
     );
   }
 }
