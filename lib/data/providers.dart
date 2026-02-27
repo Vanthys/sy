@@ -23,3 +23,9 @@ final entryRepositoryProvider = Provider<EntryRepository>((ref) {
   final db = ref.watch(databaseProvider);
   return EntryRepository(db);
 });
+
+/// A provider that refreshes all streaks when watched.
+final refreshStreaksProvider = FutureProvider<void>((ref) async {
+  final repo = ref.watch(entryRepositoryProvider);
+  await repo.refreshAllStreaks();
+});

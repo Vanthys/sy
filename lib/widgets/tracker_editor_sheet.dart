@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '/data/database.dart';
 import '/data/tracker_repository.dart';
 import '/data/tracker_config.dart';
+import 'gradient_picker.dart';
 
 class TrackerEditorSheet extends StatefulWidget {
   const TrackerEditorSheet({
@@ -39,17 +40,21 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
     final existing = widget.existingTracker;
 
     _titleController = TextEditingController(text: existing?.title ?? '');
-    _descriptionController = TextEditingController(text: existing?.description ?? '');
+    _descriptionController = TextEditingController(
+      text: existing?.description ?? '',
+    );
     _unitController = TextEditingController();
     _unitAbbrController = TextEditingController();
     _streakType = existing?.streakType ?? StreakType.continued;
 
     // Load existing config or create default one
-    _config = existing?.config ??
+    _config =
+        existing?.config ??
         const TrackerConfig(
           inputType: InputType.number,
           unit: '',
-          streakColor: '#2196F3',
+          intensityColors: ['#2196F3', '#2196F3'],
+          streakColors: ['#FFC107', '#FF9800'],
         );
 
     // Initialize controllers from config
@@ -77,7 +82,8 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
     final updatedConfig = TrackerConfig(
       inputType: _config.inputType,
       unit: _unitController.text.trim(),
-      streakColor: _config.streakColor,
+      intensityColors: _config.intensityColors,
+      streakColors: _config.streakColors,
       maxValue: _config.maxValue,
     );
 
@@ -102,9 +108,9 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save tracker: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save tracker: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -142,8 +148,8 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
               Text(
                 widget.isEditing ? 'Edit Tracker' : 'New Tracker',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 24),
 
@@ -188,9 +194,9 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                 icon: Icon(
                   _showAdvanced ? Icons.expand_less : Icons.expand_more,
                 ),
-                label: Text(_showAdvanced
-                    ? 'Hide advanced settings'
-                    : 'More options'),
+                label: Text(
+                  _showAdvanced ? 'Hide advanced settings' : 'More options',
+                ),
               ),
 
               AnimatedCrossFade(
@@ -198,6 +204,38 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                 secondChild: Column(
                   children: [
                     const SizedBox(height: 8),
+                    GradientPicker(
+                      label: 'Day Intensity Gradient',
+                      currentColors: _config.intensityColors,
+                      onChanged: (newColors) {
+                        setState(() {
+                          _config = TrackerConfig(
+                            maxValue: _config.maxValue,
+                            inputType: _config.inputType,
+                            unit: _config.unit,
+                            intensityColors: newColors,
+                            streakColors: _config.streakColors,
+                          );
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    GradientPicker(
+                      label: 'Streak Connect Gradient',
+                      currentColors: _config.streakColors,
+                      onChanged: (newColors) {
+                        setState(() {
+                          _config = TrackerConfig(
+                            maxValue: _config.maxValue,
+                            inputType: _config.inputType,
+                            unit: _config.unit,
+                            intensityColors: _config.intensityColors,
+                            streakColors: newColors,
+                          );
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: _unitController,
                       decoration: const InputDecoration(labelText: 'Unit name'),
@@ -205,16 +243,16 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _unitAbbrController,
-                      decoration:
-                          const InputDecoration(labelText: 'Unit abbreviation'),
+                      decoration: const InputDecoration(
+                        labelText: 'Unit abbreviation',
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Text(
                       'More customization options coming soon…',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: colorScheme.outline),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.outline,
+                      ),
                     ),
                   ],
                 ),

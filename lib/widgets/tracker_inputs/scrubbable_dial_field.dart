@@ -38,33 +38,40 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
   @override
   void initState() {
     super.initState();
-    _baseRotations = (widget.value ~/ widget.maxValue);
-    _value = widget.value % widget.maxValue;
-    _lastIntValue = totalValue.round();
+    // Ensure we start with a rounded value
+    final initialValue = widget.value.roundToDouble();
+    _baseRotations = (initialValue ~/ widget.maxValue);
+    _value = initialValue % widget.maxValue;
+    _lastIntValue = initialValue.round();
 
     _hintController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
 
-    _leftArrowOpacity = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.5), weight: 60),
-    ]).animate(CurvedAnimation(
-      parent: _hintController,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeInOutCubic),
-    ));
+    _leftArrowOpacity =
+        TweenSequence([
+          TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
+          TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.5), weight: 60),
+        ]).animate(
+          CurvedAnimation(
+            parent: _hintController,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeInOutCubic),
+          ),
+        );
 
-    _rightArrowOpacity = TweenSequence([
-      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.5), weight: 60),
-    ]).animate(CurvedAnimation(
-      parent: _hintController,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeInOut),
-    ));
+    _rightArrowOpacity =
+        TweenSequence([
+          TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 40),
+          TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.5), weight: 60),
+        ]).animate(
+          CurvedAnimation(
+            parent: _hintController,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeInOut),
+          ),
+        );
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      //await Future.delayed(const Duration(milliseconds: 150));
       if (mounted) _hintController.forward();
     });
   }
@@ -102,9 +109,11 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
     final delta = details.delta.dx / 4;
     final newValue = (_value + delta).clamp(0.0, widget.maxValue);
     setState(() => _value = newValue);
-    widget.onChanged(totalValue);
 
+    // Always report rounded value to avoid "ghost" decimals breaking streaks
     final intValue = totalValue.round();
+    widget.onChanged(intValue.toDouble());
+
     if (intValue != _lastIntValue) {
       _lastIntValue = intValue;
       HapticFeedback.selectionClick();
@@ -112,7 +121,13 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
   }
 
   void _onDragEnd(DragEndDetails details) {
-    setState(() => _isDragging = false);
+    setState(() {
+      _isDragging = false;
+      // Snap internal state to the rounded value on release
+      final snapped = totalValue.roundToDouble();
+      _baseRotations = (snapped ~/ widget.maxValue);
+      _value = snapped % widget.maxValue;
+    });
 
     if (_value >= widget.maxValue * 0.98) {
       _canWrapForward = true;
@@ -126,21 +141,26 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
 
   void _increment() {
     setState(() {
-      final newTotal = totalValue + 1;
+      // Ensure we increment from a rounded base
+      final newTotal = (totalValue.roundToDouble() + 1);
       _baseRotations = (newTotal ~/ widget.maxValue);
       _value = newTotal % widget.maxValue;
     });
-    widget.onChanged(totalValue);
+    widget.onChanged(totalValue.roundToDouble());
     HapticFeedback.lightImpact();
   }
 
   void _decrement() {
     setState(() {
-      final newTotal = (totalValue - 1).clamp(0, double.infinity);
+      // Ensure we decrement from a rounded base
+      final newTotal = (totalValue.roundToDouble() - 1).clamp(
+        0,
+        double.infinity,
+      );
       _baseRotations = (newTotal ~/ widget.maxValue);
       _value = newTotal % widget.maxValue;
     });
-    widget.onChanged(totalValue);
+    widget.onChanged(totalValue.roundToDouble());
     HapticFeedback.lightImpact();
   }
 
@@ -150,8 +170,9 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final progressFraction =
-        (widget.maxValue == 0) ? 0.0 : (_value / widget.maxValue);
+    final progressFraction = (widget.maxValue == 0)
+        ? 0.0
+        : (_value / widget.maxValue);
 
     return GestureDetector(
       onHorizontalDragStart: _onDragStart,
@@ -203,8 +224,7 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
                   opacity: _leftArrowOpacity,
                   child: Icon(
                     Icons.chevron_left,
-                    color: colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.45),
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                     size: 60,
                   ),
                 ),
@@ -221,8 +241,7 @@ class _ScrubbableDialFieldState extends State<ScrubbableDialField>
                   opacity: _rightArrowOpacity,
                   child: Icon(
                     Icons.chevron_right,
-                    color: colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.45),
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.45),
                     size: 60,
                   ),
                 ),
@@ -247,7 +266,7 @@ class _DialRingPainter extends CustomPainter {
     required this.maxValue,
     required this.color,
     required this.trackColor,
-    required this.isActive
+    required this.isActive,
   });
 
   @override
@@ -263,8 +282,9 @@ class _DialRingPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final progressPaint = Paint()
-      ..color =
-          (isActive ? color.withValues(alpha: 0.9) : color.withValues(alpha: 0.7))
+      ..color = (isActive
+          ? color.withValues(alpha: 0.9)
+          : color.withValues(alpha: 0.7))
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -274,7 +294,6 @@ class _DialRingPainter extends CustomPainter {
     var sweepAngle = progress * (math.pi * 1.5);
 
     sweepAngle = (sweepAngle / roundBase).round() * roundBase;
-
 
     // Track
     canvas.drawArc(
@@ -299,14 +318,13 @@ class _DialRingPainter extends CustomPainter {
 
   double roundToBase(double number, double base) {
     if (base == 0) return number;
-    
-    double scaleFactor = 1e10;  
+
+    double scaleFactor = 1e10;
     double scaledNumber = number * scaleFactor;
     double scaledBase = base * scaleFactor;
-    
+
     return (scaledNumber / scaledBase).round() * scaledBase / scaleFactor;
   }
-
 
   @override
   bool shouldRepaint(covariant _DialRingPainter old) {
@@ -316,5 +334,3 @@ class _DialRingPainter extends CustomPainter {
         old.trackColor != trackColor;
   }
 }
-
-

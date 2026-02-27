@@ -25,7 +25,9 @@ class TrackerOverviewCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final accent =
-        ColorUtils.parseHexColor(tracker.config.streakColor) ??
+        (tracker.config.intensityColors?.isNotEmpty == true
+            ? ColorUtils.parseHexColor(tracker.config.intensityColors!.first)
+            : null) ??
         (tracker.streakType == StreakType.continued ? cs.primary : cs.tertiary);
 
     final asyncData = ref.watch(trackerOverviewProvider(tracker.id));
@@ -177,7 +179,7 @@ class TrackerOverviewCard extends ConsumerWidget {
     final normalized = data.map((v) => v / (maxVal == 0 ? 1 : maxVal)).toList();
 
     final cells = List<double>.generate(_gridRows * _gridCols, (i) {
-      final index = data.length - _gridCols * _gridRows + i;
+      final index = data.length - 1 - i;
       return index >= 0 && index < data.length ? normalized[index] : 0;
     });
 

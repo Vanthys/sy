@@ -54,7 +54,7 @@ class EntryRepository {
     }
 
     // 🟢 NEW: Update streak stats after any change
-    await _updateTrackerStreaks(trackerId);
+    await updateTrackerStreaks(trackerId);
   }
 
   Stream<List<Entry>> watchEntries(String trackerId) {
@@ -74,7 +74,7 @@ class EntryRepository {
     await (db.delete(db.entries)..where((e) => e.id.equals(id))).go();
 
     // 🟢 Update streaks after deletion
-    await _updateTrackerStreaks(entry.tracker);
+    await updateTrackerStreaks(entry.tracker);
   }
 
   Stream<List<Entry>> watchEntriesInRange(
@@ -107,7 +107,17 @@ class EntryRepository {
   // ------------------------------------------------------------
   // 🔥 NEW — Streak Recalculation & Tracker Update
   // ------------------------------------------------------------
-  Future<void> _updateTrackerStreaks(String trackerId) async {
+  Future<void> refreshAllStreaks() async {
+    final trackers = await db.select(db.trackers).get();
+    for (final t in trackers) {
+      await updateTrackerStreaks(t.id);
+    }
+  }
+
+  // ------------------------------------------------------------
+  // 🔥 Streak Recalculation & Tracker Update
+  // ------------------------------------------------------------
+  Future<void> updateTrackerStreaks(String trackerId) async {
     final tracker = await (db.select(
       db.trackers,
     )..where((t) => t.id.equals(trackerId))).getSingleOrNull();
@@ -131,25 +141,30 @@ class EntryRepository {
   ) {
     final type = tracker.streakType;
     final createdAt = tracker.createdAt;
+    final trackingStartDay = DateTime(
+      createdAt.year,
+      createdAt.month,
+      createdAt.day,
+    );
 
     if (entries.isEmpty) {
       // continued → no entries → no streak
       // abstinence → no entries → full streak from start of tracking
-      final today = DateTime.now();
-      final start = DateTime(createdAt.year, createdAt.month, createdAt.day);
-      final daysSinceStart = today.difference(start).inDays + 1;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final daysSinceStart = today.difference(trackingStartDay).inDays + 1;
       return type == StreakType.continued
           ? (0, 0)
           : (daysSinceStart, daysSinceStart);
     }
 
-    // Sort ascending by date
-    final sorted = entries.map((e) => e.date).toList()..sort();
     final today = DateTime.now();
+    final todayMidnight = DateTime(today.year, today.month, today.day);
 
-    // Normalize all entry dates (midnight)
-    final entryDays = sorted
-        .map((d) => DateTime(d.year, d.month, d.day))
+    // Sort ascending by date & normalize. Only count entries with meaningful quantity.
+    final entryDays = entries
+        .where((e) => e.quantity.round() > 0)
+        .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
         .toSet();
 
     // --------------------------------------------------------
@@ -158,21 +173,17 @@ class EntryRepository {
     int longest = 0;
     int streak = 0;
 
-    // Start from the tracker's creation day or the first entry, whichever is EARLIER
-    // Actually, streaks usually start from tracking begins.
-    final trackingStart = DateTime(
-      createdAt.year,
-      createdAt.month,
-      createdAt.day,
-    );
-    final firstRelevantDay = trackingStart.isBefore(entryDays.first)
-        ? trackingStart
-        : entryDays.first;
+    // Check trackingStartDay vs the first MEANINGFUL entry
+    final sortedDays = entryDays.toList()..sort();
+    final firstDay =
+        (sortedDays.isEmpty || trackingStartDay.isBefore(sortedDays.first))
+        ? trackingStartDay
+        : sortedDays.first;
 
     for (
-      DateTime d = firstRelevantDay;
-      !d.isAfter(today);
-      d = d.add(const Duration(days: 1))
+      DateTime d = firstDay;
+      !d.isAfter(todayMidnight);
+      d = DateTime(d.year, d.month, d.day + 1)
     ) {
       final hasEntry = entryDays.contains(d);
       final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
@@ -189,9 +200,14 @@ class EntryRepository {
     // Compute Current Streak (ending today)
     // --------------------------------------------------------
     int current = 0;
-    DateTime curDay = DateTime(today.year, today.month, today.day);
+    DateTime curDay = todayMidnight;
 
-    while (true) {
+    // For continued: if today has no entry, check yesterday to keep streak alive
+    if (type == StreakType.continued && !entryDays.contains(curDay)) {
+      curDay = curDay.subtract(const Duration(days: 1));
+    }
+
+    while (!curDay.isBefore(trackingStartDay)) {
       final hasEntry = entryDays.contains(curDay);
       final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
 

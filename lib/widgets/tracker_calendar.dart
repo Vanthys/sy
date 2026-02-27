@@ -63,6 +63,7 @@ class _TrackerCalendarState extends ConsumerState<TrackerCalendar> {
                 monthLabel: month.label,
                 days: month.days,
                 unitAbbreviation: widget.tracker.config.unit,
+                streakColors: widget.tracker.config.streakColors,
                 onDayTap: (dayData) async {
                   final result = await showTrackerValueBottomSheet(
                     context: context,

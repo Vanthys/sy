@@ -30,6 +30,7 @@ class TrackerListScreen extends ConsumerWidget {
     );
 
     if (result == true && context.mounted) {
+      ref.invalidate(refreshStreaksProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -105,6 +106,8 @@ class TrackerListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final repo = ref.watch(trackerRepositoryProvider);
+    // Refresh streaks on load
+    ref.watch(refreshStreaksProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -162,10 +165,7 @@ class TrackerListScreen extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => TrackerCalendarScreen(
-                        trackerId: tracker.id,
-                        trackerTitle: tracker.title,
-                      ),
+                      builder: (_) => TrackerCalendarScreen(tracker: tracker),
                     ),
                   );
                 },

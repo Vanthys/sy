@@ -135,7 +135,8 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton(
-                    onPressed: () => Navigator.pop(context, _totalValue),
+                    onPressed: () =>
+                        Navigator.pop(context, _totalValue.roundToDouble()),
                     style: FilledButton.styleFrom(
                       backgroundColor: colorScheme.primary,
                     ),

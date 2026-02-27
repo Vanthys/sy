@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
 import '../data/database.dart';
@@ -18,6 +17,8 @@ class DayData {
     required this.amount,
     required this.color,
     this.inStreak = false,
+    this.isStreakStart = false,
+    this.isStreakEnd = false,
   });
 
   final DateTime date;
@@ -25,6 +26,8 @@ class DayData {
   final double amount;
   final Color color;
   final bool inStreak;
+  final bool isStreakStart;
+  final bool isStreakEnd;
 }
 
 class MonthData {
@@ -157,42 +160,70 @@ class TrackerCalendarNotifier extends ChangeNotifier {
   // Helpers
   // ----------------------------------------
   List<MonthData> _groupEntriesIntoMonths(List<Entry> entries) {
-    final grouped = <String, List<Entry>>{};
-    for (final e in entries) {
+    // Only count entries with meaningful quantity (round to 1+)
+    final meaningfulEntries = entries
+        .where((e) => e.quantity.round() > 0)
+        .toList();
+
+    final entryMap = <DateTime, Entry>{
+      for (final e in meaningfulEntries)
+        DateTime(e.date.year, e.date.month, e.date.day): e,
+    };
+
+    final groupedByMonth = <String, List<Entry>>{};
+    for (final e in meaningfulEntries) {
       final key = DateFormat('yyyy-MM').format(e.date);
-      grouped.putIfAbsent(key, () => []).add(e);
+      groupedByMonth.putIfAbsent(key, () => []).add(e);
     }
 
-    final streakDates = _computeCurrentStreakDates(tracker.streakType, entries);
+    final streakDatesSet = _computeCurrentStreakDates(
+      tracker.streakType,
+      meaningfulEntries,
+    );
     final months = <MonthData>[];
     DateTime month = _latestMonth;
 
     while (month.isAfter(_earliestLoaded) ||
         month.isAtSameMomentAs(_earliestLoaded)) {
-      final key = DateFormat('yyyy-MM').format(month);
-      final entriesForMonth = grouped[key] ?? [];
-
       final daysInMonth = DateUtils.getDaysInMonth(month.year, month.month);
-      final lastDay = DateTime(month.year, month.month, daysInMonth);
 
       final today = DateTime.now();
-      final maxVisibleDate = lastDay.isAfter(today) ? today : lastDay;
-      final visibleDays = maxVisibleDate.day;
+      final todayMidnight = DateTime(today.year, today.month, today.day);
+      final monthEnd = DateTime(month.year, month.month, daysInMonth);
+      final maxVisibleDate = monthEnd.isAfter(todayMidnight)
+          ? todayMidnight
+          : monthEnd;
+      final visibleDaysCount = maxVisibleDate.day;
 
-      final days = List.generate(visibleDays, (i) {
-        final date = DateTime(month.year, month.month, visibleDays - i);
-        final Entry? entry = entriesForMonth.firstWhereOrNull(
-          (e) => DateUtils.isSameDay(e.date, date),
-        );
+      final days = List.generate(visibleDaysCount, (i) {
+        final date = DateTime(month.year, month.month, visibleDaysCount - i);
+        final entry = entryMap[date];
         final amount = entry?.quantity ?? 0.0;
-        final inStreak = streakDates.any((d) => DateUtils.isSameDay(d, date));
+        final inStreak = streakDatesSet.contains(date);
+
+        bool isStart = false;
+        bool isEnd = false;
+
+        if (inStreak) {
+          final yesterday = date.subtract(const Duration(days: 1));
+          final tomorrow = date.add(const Duration(days: 1));
+
+          isStart = !streakDatesSet.contains(yesterday);
+          isEnd = !streakDatesSet.contains(tomorrow);
+        }
 
         return DayData(
           date: date,
           entry: entry,
           amount: amount,
-          color: ColorUtils.getColorForAmount(amount),
+          color: ColorUtils.getColorForAmount(
+            amount,
+            gradientColors: tracker.config.intensityColors,
+            maxValue: tracker.config.maxValue,
+          ),
           inStreak: inStreak,
+          isStreakStart: isStart,
+          isStreakEnd: isEnd,
         );
       }).toList();
 
@@ -210,28 +241,41 @@ class TrackerCalendarNotifier extends ChangeNotifier {
     return months;
   }
 
-  List<DateTime> _computeCurrentStreakDates(
+  Set<DateTime> _computeCurrentStreakDates(
     StreakType type,
     List<Entry> entries,
   ) {
-    if (entries.isEmpty) return [];
+    if (entries.isEmpty && type == StreakType.continued) return {};
 
-    final sorted = entries.map((e) => e.date).toList()..sort();
+    final entryDates = entries
+        .where((e) => e.quantity.round() > 0)
+        .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
+        .toSet();
+
     final today = DateTime.now();
+    final todayMidnight = DateTime(today.year, today.month, today.day);
     final Set<DateTime> streakDays = {};
 
-    DateTime current = today;
+    DateTime current = todayMidnight;
 
-    bool isGoodDay(DateTime d) {
-      final hasEntry = sorted.any((e) => DateUtils.isSameDay(e, d));
-      return type == StreakType.continued ? hasEntry : !hasEntry;
-    }
-
-    while (isGoodDay(current)) {
-      streakDays.add(DateTime(current.year, current.month, current.day));
+    // For "continued" streaks, we allow a 1-day buffer (yesterday)
+    if (type == StreakType.continued && !entryDates.contains(current)) {
       current = current.subtract(const Duration(days: 1));
     }
 
-    return streakDays.toList();
+    bool isGoodDay(DateTime d) {
+      final hasEntry = entryDates.contains(d);
+      return type == StreakType.continued ? hasEntry : !hasEntry;
+    }
+
+    // Don't go back further than tracker creation or a reasonable limit
+    final limit = tracker.createdAt.subtract(const Duration(days: 1));
+
+    while (isGoodDay(current) && current.isAfter(limit)) {
+      streakDays.add(current);
+      current = current.subtract(const Duration(days: 1));
+    }
+
+    return streakDays;
   }
 }
