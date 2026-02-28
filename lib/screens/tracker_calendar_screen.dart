@@ -35,7 +35,27 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_currentPage == 0 ? widget.tracker.title : 'Statistics'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                _currentPage == 0 ? widget.tracker.title : 'Statistics',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (_currentPage == 0 &&
+                widget.tracker.privacyLevel != PrivacyLevel.standard) ...[
+              const SizedBox(width: 6),
+              Icon(
+                widget.tracker.privacyLevel == PrivacyLevel.vault
+                    ? Icons.lock_outline
+                    : Icons.visibility_off,
+                size: 18,
+              ),
+            ],
+          ],
+        ),
         actions: [
           IconButton(
             icon: Icon(

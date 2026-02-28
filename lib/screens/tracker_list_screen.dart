@@ -1,13 +1,11 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import '/data/database.dart';
 import '/data/providers.dart';
+import '/logic/vault_provider.dart';
 import '/widgets/tracker_editor_sheet.dart';
 import '/widgets/tracker_overview_card.dart';
+import 'settings_screen.dart';
 import 'tracker_calendar_screen.dart';
 
 class TrackerListScreen extends ConsumerStatefulWidget {
@@ -31,6 +29,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     Tracker? existing,
   }) async {
     final repo = ref.read(trackerRepositoryProvider);
+    final vaultState = ref.read(vaultProvider);
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -38,7 +37,11 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => TrackerEditorSheet(repo: repo, existingTracker: existing),
+      builder: (_) => TrackerEditorSheet(
+        repo: repo,
+        vaultState: vaultState,
+        existingTracker: existing,
+      ),
     );
 
     if (result == true && context.mounted) {
@@ -84,33 +87,55 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     }
   }
 
-  Future<void> _exportDatabase(BuildContext context) async {
-    try {
-      final dir = await getApplicationSupportDirectory();
-      final dbPath = p.join(dir.path, AppDatabase.dbName);
-      final file = File(dbPath);
+  Future<void> _handleVaultUnlock() async {
+    final notifier = ref.read(vaultProvider.notifier);
+    final isConfigured = await notifier.isVaultConfigured();
 
-      if (await file.exists()) {
-        final box = context.findRenderObject() as RenderBox?;
-        await Share.shareXFiles(
-          [XFile(dbPath)],
-          text: 'My Streak Tracker Backup',
-          sharePositionOrigin: box != null
-              ? box.localToGlobal(Offset.zero) & box.size
-              : null,
+    if (!isConfigured) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vault is not configured. Go to Settings.'),
+          ),
         );
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Database file not found!')),
-          );
-        }
       }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to export: $e')));
+      return;
+    }
+
+    if (mounted) {
+      final pinController = TextEditingController();
+      final success = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Unlock Vault'),
+          content: TextField(
+            controller: pinController,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Enter PIN'),
+            onSubmitted: (val) => Navigator.pop(context, true),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Unlock'),
+            ),
+          ],
+        ),
+      );
+
+      if (success == true) {
+        final unlocked = await notifier.unlockVault(pinController.text);
+        if (!unlocked && mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Incorrect Vault PIN.')));
+        }
       }
     }
   }
@@ -118,15 +143,21 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
   @override
   Widget build(BuildContext context) {
     final repo = ref.watch(trackerRepositoryProvider);
+    final vaultState = ref.watch(vaultProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Trackers'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.download),
-            tooltip: 'Export Database',
-            onPressed: () => _exportDatabase(context),
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
           ),
         ],
       ),
@@ -146,44 +177,100 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
           }
 
           final trackers = snapshot.data!;
-          if (trackers.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+          if (trackers.isEmpty && !vaultState.isVaultUnlocked) {
+            return RefreshIndicator(
+              onRefresh: _handleVaultUnlock,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 children: [
-                  const Text('No trackers yet.'),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                  const Center(child: Text('No trackers yet.')),
                   const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: () => _openTrackerEditor(context, ref),
-                    child: const Text('Create your first tracker'),
+                  Center(
+                    child: FilledButton(
+                      onPressed: () => _openTrackerEditor(context, ref),
+                      child: const Text('Create your first tracker'),
+                    ),
                   ),
                 ],
               ),
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(8),
-            separatorBuilder: (_, _) => const SizedBox(height: 0),
-            itemCount: trackers.length,
-            itemBuilder: (context, i) {
-              final tracker = trackers[i];
-
-              return TrackerOverviewCard(
-                tracker: tracker,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => TrackerCalendarScreen(tracker: tracker),
+          return RefreshIndicator(
+            onRefresh: _handleVaultUnlock,
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(8),
+              separatorBuilder: (_, _) => const SizedBox(height: 0),
+              itemCount: trackers.length + (vaultState.isVaultUnlocked ? 1 : 0),
+              itemBuilder: (context, i) {
+                // If vault is unlocked, show a lock banner at the very top
+                if (vaultState.isVaultUnlocked && i == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Material(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(16),
+                      clipBehavior: Clip.hardEdge,
+                      child: InkWell(
+                        onTap: () {
+                          ref.read(vaultProvider.notifier).lockVault();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                vaultState.unlockedLevel == PrivacyLevel.secret
+                                    ? Icons.visibility_off
+                                    : Icons.lock_open,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                vaultState.unlockedLevel == PrivacyLevel.secret
+                                    ? 'Secret Vault Unlocked - Tap to Lock'
+                                    : 'Vault Unlocked - Tap to Lock',
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   );
-                },
-                onEdit: () =>
-                    _openTrackerEditor(context, ref, existing: tracker),
-                onDelete: () => _deleteTracker(context, ref, tracker),
-              );
-            },
+                }
+
+                // Adjust index if we added the banner
+                final trackerIndex = vaultState.isVaultUnlocked ? i - 1 : i;
+                final tracker = trackers[trackerIndex];
+
+                return TrackerOverviewCard(
+                  tracker: tracker,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TrackerCalendarScreen(tracker: tracker),
+                      ),
+                    );
+                  },
+                  onEdit: () =>
+                      _openTrackerEditor(context, ref, existing: tracker),
+                  onDelete: () => _deleteTracker(context, ref, tracker),
+                );
+              },
+            ),
           );
         },
       ),

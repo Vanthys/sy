@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '/data/database.dart';
 import '/data/tracker_repository.dart';
 import '/data/entry_repository.dart';
+import '/logic/vault_provider.dart';
 
 /// Provides the global AppDatabase instance.
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -15,7 +16,8 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 /// Provides the TrackerRepository.
 final trackerRepositoryProvider = Provider<TrackerRepository>((ref) {
   final db = ref.watch(databaseProvider);
-  return TrackerRepository(db);
+  final vault = ref.watch(vaultProvider);
+  return TrackerRepository(db, vault);
 });
 
 /// Provides the EntryRepository.

@@ -99,15 +99,34 @@ class TrackerOverviewCard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                tracker.title,
-                softWrap: true,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurface,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Flexible(
+                    child: Text(
+                      tracker.title,
+                      softWrap: true,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                  if (tracker.privacyLevel != PrivacyLevel.standard) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2.0, left: 6.0),
+                      child: Icon(
+                        tracker.privacyLevel == PrivacyLevel.vault
+                            ? Icons.lock_outline
+                            : Icons.visibility_off,
+                        size: 16,
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
               ),
               if (desc != null)
                 Text(

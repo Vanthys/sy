@@ -4,14 +4,18 @@ import '/data/tracker_repository.dart';
 import '/data/tracker_config.dart';
 import 'gradient_picker.dart';
 
+import '/logic/vault_provider.dart';
+
 class TrackerEditorSheet extends StatefulWidget {
   const TrackerEditorSheet({
     super.key,
     required this.repo,
+    required this.vaultState,
     this.existingTracker,
   });
 
   final TrackerRepository repo;
+  final VaultState vaultState;
   final Tracker? existingTracker;
 
   bool get isEditing => existingTracker != null;
@@ -26,6 +30,7 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
   late final TextEditingController _unitController;
   late final TextEditingController _unitAbbrController;
   late StreakType _streakType;
+  late PrivacyLevel _privacyLevel;
   late TrackerConfig _config;
 
   String? _titleError;
@@ -46,6 +51,7 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
     _unitController = TextEditingController();
     _unitAbbrController = TextEditingController();
     _streakType = existing?.streakType ?? StreakType.continued;
+    _privacyLevel = existing?.privacyLevel ?? PrivacyLevel.standard;
 
     // Load existing config or create default one
     _config =
@@ -94,6 +100,7 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
           title: title,
           description: _descriptionController.text.trim(),
           streakType: _streakType,
+          privacyLevel: _privacyLevel,
           config: updatedConfig,
         );
       } else {
@@ -101,6 +108,7 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
           title: title,
           description: _descriptionController.text.trim(),
           streakType: _streakType,
+          privacyLevel: _privacyLevel,
           config: updatedConfig,
         );
       }
@@ -187,8 +195,68 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
 
-              const SizedBox(height: 8),
+              if (widget.vaultState.isVaultUnlocked) ...[
+                Text(
+                  'Privacy',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<PrivacyLevel>(
+                  segments: [
+                    const ButtonSegment(
+                      value: PrivacyLevel.standard,
+                      label: Text('Public'),
+                      icon: Icon(Icons.public),
+                    ),
+                    if (widget.vaultState.unlockedLevel.index >=
+                        PrivacyLevel.vault.index)
+                      const ButtonSegment(
+                        value: PrivacyLevel.vault,
+                        label: Text('Vault'),
+                        icon: Icon(Icons.lock_outline),
+                      ),
+                    if (widget.vaultState.unlockedLevel.index >=
+                        PrivacyLevel.secret.index)
+                      const ButtonSegment(
+                        value: PrivacyLevel.secret,
+                        label: Text('Secret'),
+                        icon: Icon(Icons.visibility_off),
+                      ),
+                  ],
+                  selected: {_privacyLevel},
+                  onSelectionChanged: (newSelection) {
+                    setState(() => _privacyLevel = newSelection.first);
+                  },
+                ),
+                if (_privacyLevel != PrivacyLevel.standard)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Data will be encrypted with your Vault PIN. Make sure a PIN is set in Settings.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
               TextButton.icon(
                 onPressed: () => setState(() => _showAdvanced = !_showAdvanced),
                 icon: Icon(

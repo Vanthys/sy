@@ -24,10 +24,6 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
     'title',
     aliasedName,
     false,
-    additionalChecks: GeneratedColumn.checkTextLength(
-      minTextLength: 1,
-      maxTextLength: 50,
-    ),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
@@ -51,6 +47,16 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
         type: DriftSqlType.int,
         requiredDuringInsert: true,
       ).withConverter<StreakType>($TrackersTable.$converterstreakType);
+  @override
+  late final GeneratedColumnWithTypeConverter<PrivacyLevel, int> privacyLevel =
+      GeneratedColumn<int>(
+        'privacy_level',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      ).withConverter<PrivacyLevel>($TrackersTable.$converterprivacyLevel);
   @override
   late final GeneratedColumnWithTypeConverter<TrackerConfig, String> config =
       GeneratedColumn<String>(
@@ -114,6 +120,7 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
     title,
     description,
     streakType,
+    privacyLevel,
     config,
     currentStreak,
     longestStreak,
@@ -209,6 +216,12 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
           data['${effectivePrefix}streak_type'],
         )!,
       ),
+      privacyLevel: $TrackersTable.$converterprivacyLevel.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}privacy_level'],
+        )!,
+      ),
       config: $TrackersTable.$converterconfig.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -241,6 +254,8 @@ class $TrackersTable extends Trackers with TableInfo<$TrackersTable, Tracker> {
 
   static JsonTypeConverter2<StreakType, int, int> $converterstreakType =
       const EnumIndexConverter<StreakType>(StreakType.values);
+  static JsonTypeConverter2<PrivacyLevel, int, int> $converterprivacyLevel =
+      const EnumIndexConverter<PrivacyLevel>(PrivacyLevel.values);
   static TypeConverter<TrackerConfig, String> $converterconfig =
       const TrackerConfigConverter();
 }
@@ -250,6 +265,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
   final String title;
   final String? description;
   final StreakType streakType;
+  final PrivacyLevel privacyLevel;
   final TrackerConfig config;
   final int currentStreak;
   final int longestStreak;
@@ -260,6 +276,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
     required this.title,
     this.description,
     required this.streakType,
+    required this.privacyLevel,
     required this.config,
     required this.currentStreak,
     required this.longestStreak,
@@ -277,6 +294,11 @@ class Tracker extends DataClass implements Insertable<Tracker> {
     {
       map['streak_type'] = Variable<int>(
         $TrackersTable.$converterstreakType.toSql(streakType),
+      );
+    }
+    {
+      map['privacy_level'] = Variable<int>(
+        $TrackersTable.$converterprivacyLevel.toSql(privacyLevel),
       );
     }
     {
@@ -299,6 +321,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
           ? const Value.absent()
           : Value(description),
       streakType: Value(streakType),
+      privacyLevel: Value(privacyLevel),
       config: Value(config),
       currentStreak: Value(currentStreak),
       longestStreak: Value(longestStreak),
@@ -319,6 +342,9 @@ class Tracker extends DataClass implements Insertable<Tracker> {
       streakType: $TrackersTable.$converterstreakType.fromJson(
         serializer.fromJson<int>(json['streakType']),
       ),
+      privacyLevel: $TrackersTable.$converterprivacyLevel.fromJson(
+        serializer.fromJson<int>(json['privacyLevel']),
+      ),
       config: serializer.fromJson<TrackerConfig>(json['config']),
       currentStreak: serializer.fromJson<int>(json['currentStreak']),
       longestStreak: serializer.fromJson<int>(json['longestStreak']),
@@ -336,6 +362,9 @@ class Tracker extends DataClass implements Insertable<Tracker> {
       'streakType': serializer.toJson<int>(
         $TrackersTable.$converterstreakType.toJson(streakType),
       ),
+      'privacyLevel': serializer.toJson<int>(
+        $TrackersTable.$converterprivacyLevel.toJson(privacyLevel),
+      ),
       'config': serializer.toJson<TrackerConfig>(config),
       'currentStreak': serializer.toJson<int>(currentStreak),
       'longestStreak': serializer.toJson<int>(longestStreak),
@@ -349,6 +378,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
     String? title,
     Value<String?> description = const Value.absent(),
     StreakType? streakType,
+    PrivacyLevel? privacyLevel,
     TrackerConfig? config,
     int? currentStreak,
     int? longestStreak,
@@ -359,6 +389,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
     title: title ?? this.title,
     description: description.present ? description.value : this.description,
     streakType: streakType ?? this.streakType,
+    privacyLevel: privacyLevel ?? this.privacyLevel,
     config: config ?? this.config,
     currentStreak: currentStreak ?? this.currentStreak,
     longestStreak: longestStreak ?? this.longestStreak,
@@ -375,6 +406,9 @@ class Tracker extends DataClass implements Insertable<Tracker> {
       streakType: data.streakType.present
           ? data.streakType.value
           : this.streakType,
+      privacyLevel: data.privacyLevel.present
+          ? data.privacyLevel.value
+          : this.privacyLevel,
       config: data.config.present ? data.config.value : this.config,
       currentStreak: data.currentStreak.present
           ? data.currentStreak.value
@@ -394,6 +428,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('streakType: $streakType, ')
+          ..write('privacyLevel: $privacyLevel, ')
           ..write('config: $config, ')
           ..write('currentStreak: $currentStreak, ')
           ..write('longestStreak: $longestStreak, ')
@@ -409,6 +444,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
     title,
     description,
     streakType,
+    privacyLevel,
     config,
     currentStreak,
     longestStreak,
@@ -423,6 +459,7 @@ class Tracker extends DataClass implements Insertable<Tracker> {
           other.title == this.title &&
           other.description == this.description &&
           other.streakType == this.streakType &&
+          other.privacyLevel == this.privacyLevel &&
           other.config == this.config &&
           other.currentStreak == this.currentStreak &&
           other.longestStreak == this.longestStreak &&
@@ -435,6 +472,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
   final Value<String> title;
   final Value<String?> description;
   final Value<StreakType> streakType;
+  final Value<PrivacyLevel> privacyLevel;
   final Value<TrackerConfig> config;
   final Value<int> currentStreak;
   final Value<int> longestStreak;
@@ -446,6 +484,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
     this.title = const Value.absent(),
     this.description = const Value.absent(),
     this.streakType = const Value.absent(),
+    this.privacyLevel = const Value.absent(),
     this.config = const Value.absent(),
     this.currentStreak = const Value.absent(),
     this.longestStreak = const Value.absent(),
@@ -458,6 +497,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
     required String title,
     this.description = const Value.absent(),
     required StreakType streakType,
+    this.privacyLevel = const Value.absent(),
     required TrackerConfig config,
     this.currentStreak = const Value.absent(),
     this.longestStreak = const Value.absent(),
@@ -472,6 +512,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
     Expression<String>? title,
     Expression<String>? description,
     Expression<int>? streakType,
+    Expression<int>? privacyLevel,
     Expression<String>? config,
     Expression<int>? currentStreak,
     Expression<int>? longestStreak,
@@ -484,6 +525,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (streakType != null) 'streak_type': streakType,
+      if (privacyLevel != null) 'privacy_level': privacyLevel,
       if (config != null) 'config': config,
       if (currentStreak != null) 'current_streak': currentStreak,
       if (longestStreak != null) 'longest_streak': longestStreak,
@@ -498,6 +540,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
     Value<String>? title,
     Value<String?>? description,
     Value<StreakType>? streakType,
+    Value<PrivacyLevel>? privacyLevel,
     Value<TrackerConfig>? config,
     Value<int>? currentStreak,
     Value<int>? longestStreak,
@@ -510,6 +553,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
       title: title ?? this.title,
       description: description ?? this.description,
       streakType: streakType ?? this.streakType,
+      privacyLevel: privacyLevel ?? this.privacyLevel,
       config: config ?? this.config,
       currentStreak: currentStreak ?? this.currentStreak,
       longestStreak: longestStreak ?? this.longestStreak,
@@ -534,6 +578,11 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
     if (streakType.present) {
       map['streak_type'] = Variable<int>(
         $TrackersTable.$converterstreakType.toSql(streakType.value),
+      );
+    }
+    if (privacyLevel.present) {
+      map['privacy_level'] = Variable<int>(
+        $TrackersTable.$converterprivacyLevel.toSql(privacyLevel.value),
       );
     }
     if (config.present) {
@@ -566,6 +615,7 @@ class TrackersCompanion extends UpdateCompanion<Tracker> {
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('streakType: $streakType, ')
+          ..write('privacyLevel: $privacyLevel, ')
           ..write('config: $config, ')
           ..write('currentStreak: $currentStreak, ')
           ..write('longestStreak: $longestStreak, ')
@@ -1050,6 +1100,7 @@ typedef $$TrackersTableCreateCompanionBuilder =
       required String title,
       Value<String?> description,
       required StreakType streakType,
+      Value<PrivacyLevel> privacyLevel,
       required TrackerConfig config,
       Value<int> currentStreak,
       Value<int> longestStreak,
@@ -1063,6 +1114,7 @@ typedef $$TrackersTableUpdateCompanionBuilder =
       Value<String> title,
       Value<String?> description,
       Value<StreakType> streakType,
+      Value<PrivacyLevel> privacyLevel,
       Value<TrackerConfig> config,
       Value<int> currentStreak,
       Value<int> longestStreak,
@@ -1124,6 +1176,12 @@ class $$TrackersTableFilterComposer
         column: $table.streakType,
         builder: (column) => ColumnWithTypeConverterFilters(column),
       );
+
+  ColumnWithTypeConverterFilters<PrivacyLevel, PrivacyLevel, int>
+  get privacyLevel => $composableBuilder(
+    column: $table.privacyLevel,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
 
   ColumnWithTypeConverterFilters<TrackerConfig, TrackerConfig, String>
   get config => $composableBuilder(
@@ -1206,6 +1264,11 @@ class $$TrackersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get privacyLevel => $composableBuilder(
+    column: $table.privacyLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get config => $composableBuilder(
     column: $table.config,
     builder: (column) => ColumnOrderings(column),
@@ -1255,6 +1318,12 @@ class $$TrackersTableAnnotationComposer
   GeneratedColumnWithTypeConverter<StreakType, int> get streakType =>
       $composableBuilder(
         column: $table.streakType,
+        builder: (column) => column,
+      );
+
+  GeneratedColumnWithTypeConverter<PrivacyLevel, int> get privacyLevel =>
+      $composableBuilder(
+        column: $table.privacyLevel,
         builder: (column) => column,
       );
 
@@ -1335,6 +1404,7 @@ class $$TrackersTableTableManager
                 Value<String> title = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<StreakType> streakType = const Value.absent(),
+                Value<PrivacyLevel> privacyLevel = const Value.absent(),
                 Value<TrackerConfig> config = const Value.absent(),
                 Value<int> currentStreak = const Value.absent(),
                 Value<int> longestStreak = const Value.absent(),
@@ -1346,6 +1416,7 @@ class $$TrackersTableTableManager
                 title: title,
                 description: description,
                 streakType: streakType,
+                privacyLevel: privacyLevel,
                 config: config,
                 currentStreak: currentStreak,
                 longestStreak: longestStreak,
@@ -1359,6 +1430,7 @@ class $$TrackersTableTableManager
                 required String title,
                 Value<String?> description = const Value.absent(),
                 required StreakType streakType,
+                Value<PrivacyLevel> privacyLevel = const Value.absent(),
                 required TrackerConfig config,
                 Value<int> currentStreak = const Value.absent(),
                 Value<int> longestStreak = const Value.absent(),
@@ -1370,6 +1442,7 @@ class $$TrackersTableTableManager
                 title: title,
                 description: description,
                 streakType: streakType,
+                privacyLevel: privacyLevel,
                 config: config,
                 currentStreak: currentStreak,
                 longestStreak: longestStreak,

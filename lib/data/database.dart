@@ -10,14 +10,19 @@ part 'database.g.dart';
 
 enum StreakType { continued, abstinence }
 
+enum PrivacyLevel { standard, vault, secret }
+
 @DataClassName('Tracker')
 class Trackers extends Table {
   TextColumn get id => text().clientDefault(() => const Uuid().v4())();
 
-  TextColumn get title => text().withLength(min: 1, max: 50)();
+  TextColumn get title => text()();
   TextColumn get description => text().nullable()();
 
   IntColumn get streakType => intEnum<StreakType>().named('streak_type')();
+  IntColumn get privacyLevel => intEnum<PrivacyLevel>()
+      .withDefault(const Constant(0))
+      .named('privacy_level')();
 
   TextColumn get config => text().map(const TrackerConfigConverter())();
 
@@ -58,7 +63,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -76,6 +81,13 @@ class AppDatabase extends _$AppDatabase {
         await m.issueCustomQuery('DROP INDEX IF EXISTS entry_index;');
 
         await m.createAll();
+      }
+
+      if (from < 7) {
+        await m.addColumn(
+          trackers,
+          trackers.privacyLevel as GeneratedColumn<Object>,
+        );
       }
     },
     beforeOpen: (details) async {
