@@ -2,9 +2,9 @@
 <!-- Created with Inkscape (http://www.inkscape.org/) -->
 
 <svg
-   width="108.52914"
-   height="108.38044"
-   viewBox="0 0 28.715001 28.675658"
+   width="108.5"
+   height="108.36588"
+   viewBox="0 0 28.707292 28.671804"
    version="1.1"
    id="svg1"
    xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -268,7 +268,7 @@
   <g
      id="layer2"
      style="display:inline"
-     transform="translate(0.06999996,0.0306587)">
+     transform="translate(0.0661458,0.0306587)">
     <rect
        style="font-variation-settings:'wght' 500;display:inline;fill:url(#linearGradient3);stroke:none;stroke-width:0.0612517;stroke-linecap:round;stroke-linejoin:round;paint-order:fill markers stroke"
        id="rect2"
@@ -284,12 +284,16 @@
        x="0"
        y="0" />
     <path
-       style="font-variation-settings:'wght' 500;fill:#26303d;fill-opacity:1;stroke:#26303d;stroke-width:0.14;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:fill markers stroke"
+       style="font-variation-settings:'wght' 500;fill:#26303d;fill-opacity:1;stroke:#26303d;stroke-width:0.132292;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:fill markers stroke"
        d="M 5.6104813,17.446891 1.4882812,19.810677 0,18.818489 0.03062586,28.575 H 28.575 V 17.4625 l -3.472657,2.282031 -2.137825,-2.29764 v 5.360016 H 5.6104813 Z"
        id="path17" />
     <path
+       style="font-variation-settings:'wght' 500;fill:#26303d;fill-opacity:1;stroke:#26303d;stroke-width:0.132292;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:fill markers stroke"
+       d="m 5.6104813,22.806907 c 0,-0.473197 0,-5.360016 0,-5.360016 l 5.9890157,1.565995 3.695001,-1.122532 3.578071,1.262848 4.091949,-1.706311 v 5.360016 z"
+       id="path6" />
+    <path
        style="font-variation-settings:'wght' 500;fill:#edf0f4;fill-opacity:1;stroke:none;stroke-width:0.14;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:fill markers stroke"
-       d="M 8.525417,22.806907 18.553906,28.575 h 4.729427 L 11.372564,22.806907"
+       d="M 11.372564,22.806907 23.283333,28.575 h -4.729427 l -10.028489,-5.768093 8.596933,-2.869079 -2.092027,-2.041246 3.607592,2.506882 z"
        id="path18" />
     <g
        id="g76"

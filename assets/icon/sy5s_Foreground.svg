@@ -31,7 +31,8 @@
        y="5.5562501" />
     <g
        id="g2"
-       transform="matrix(1.3664596,0,0,1.3664596,5.6104814,5.45287)">
+       transform="matrix(1.3664596,0,0,1.3664596,5.6104814,5.45287)"
+       style="display:inline">
       <g
          id="g74"
          transform="matrix(3.4777717,0,0,3.4777717,-0.02016669,-4.1521872)">
@@ -72,7 +73,8 @@
            id="path92" />
       </g>
       <g
-         id="g58">
+         id="g58"
+         style="display:inline">
         <path
            style="font-variation-settings:'wght' 500;fill:#26303d;fill-opacity:1;stroke:#26303d;stroke-width:0.079375;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;paint-order:fill markers stroke"
            d="M 0,8.7774427 1.6948656,7.8936937 3.2243667,6.3815592 4.0976327,5.1052473 4.8365499,4.6350271 6.4487334,2.0824035 8.4191797,5.8441645 8.9789655,5.7545988 11.173326,8.3520054 12.7,8.7774427 V 12.7 H 0 Z"

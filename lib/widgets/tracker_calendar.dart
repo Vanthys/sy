@@ -74,30 +74,35 @@ class _TrackerCalendarState extends ConsumerState<TrackerCalendar> {
                 crossAxisSpacing: 4,
                 mainAxisSpacing: 4,
               ),
-              delegate: SliverChildBuilderDelegate((context, dayIndex) {
-                final dayData = month.days[dayIndex];
-                return DayBlock(
-                  dayData: dayData,
-                  unitAbbreviation: widget.tracker.config.unit,
-                  onTap: () async {
-                    final result = await showTrackerValueBottomSheet(
-                      context: context,
-                      date: dayData.date,
-                      initialAmount: dayData.entry?.quantity ?? 0,
-                      unitName: widget.tracker.config.unit ?? 'units',
-                      maxValue: widget.tracker.config.maxValue ?? 12,
-                    );
-                    if (result != null) {
-                      await ref
-                          .read(trackerCalendarProvider(widget.tracker))
-                          .saveEntry(dayData.date, result);
-                    }
-                  },
-                  streakType: widget.tracker.streakType,
-                  streakColors: widget.tracker.config.streakColors,
-                  columnIndex: dayIndex % 7,
-                );
-              }, childCount: month.days.length),
+              delegate: SliverChildBuilderDelegate(
+                (context, dayIndex) {
+                  final dayData = month.days[dayIndex];
+                  return DayBlock(
+                    dayData: dayData,
+                    unitAbbreviation: widget.tracker.config.unit,
+                    onTap: () async {
+                      final result = await showTrackerValueBottomSheet(
+                        context: context,
+                        date: dayData.date,
+                        initialAmount: dayData.entry?.quantity ?? 0,
+                        unitName: widget.tracker.config.unit ?? 'units',
+                        maxValue: widget.tracker.config.maxValue ?? 12,
+                      );
+                      if (result != null) {
+                        await ref
+                            .read(trackerCalendarProvider(widget.tracker))
+                            .saveEntry(dayData.date, result);
+                      }
+                    },
+                    streakType: widget.tracker.streakType,
+                    streakColors: widget.tracker.config.streakColors,
+                    columnIndex: dayIndex % 7,
+                  );
+                },
+                childCount: month.days.length,
+                addRepaintBoundaries: false,
+                addAutomaticKeepAlives: false,
+              ),
             ),
           ),
         ],
