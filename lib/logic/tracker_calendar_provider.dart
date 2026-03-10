@@ -114,8 +114,9 @@ class TrackerCalendarNotifier extends ChangeNotifier {
         .map(ColorUtils.parseHexColor)
         .whereType<Color>()
         .toList();
-    if (parsed.isEmpty)
+    if (parsed.isEmpty) {
       return [const Color(0xFF2196F3), const Color(0xFF2196F3)];
+    }
     if (parsed.length == 1) return [parsed.first, parsed.first];
     return parsed;
   }
@@ -195,7 +196,7 @@ class TrackerCalendarNotifier extends ChangeNotifier {
 
     if (tracker.streakType == StreakType.continued &&
         !entryDatesSet.contains(current)) {
-      current = current.subtract(const Duration(days: 1));
+      current = DateTime(current.year, current.month, current.day - 1);
     }
 
     bool isGoodDay(DateTime d) {
@@ -205,7 +206,7 @@ class TrackerCalendarNotifier extends ChangeNotifier {
 
     while (isGoodDay(current) && !current.isBefore(trackingStartDay)) {
       streakDatesSet.add(current);
-      current = current.subtract(const Duration(days: 1));
+      current = DateTime(current.year, current.month, current.day - 1);
     }
 
     // Grouping
@@ -231,8 +232,8 @@ class TrackerCalendarNotifier extends ChangeNotifier {
         bool isEnd = false;
 
         if (inStreak) {
-          final yesterday = date.subtract(const Duration(days: 1));
-          final tomorrow = date.add(const Duration(days: 1));
+          final yesterday = DateTime(date.year, date.month, date.day - 1);
+          final tomorrow = DateTime(date.year, date.month, date.day + 1);
           isStart = !streakDatesSet.contains(yesterday);
           isEnd = !streakDatesSet.contains(tomorrow);
         }

@@ -275,7 +275,7 @@ List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
 
   // For continued: if today has no entry, check yesterday to keep streak alive
   if (type == StreakType.continued && !entryDays.contains(curDay)) {
-    curDay = curDay.subtract(const Duration(days: 1));
+    curDay = DateTime(curDay.year, curDay.month, curDay.day - 1);
   }
 
   while (!curDay.isBefore(trackingStartDay)) {
@@ -284,7 +284,7 @@ List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
 
     if (!goodDay) break;
     current++;
-    curDay = curDay.subtract(const Duration(days: 1));
+    curDay = DateTime(curDay.year, curDay.month, curDay.day - 1);
   }
 
   return (current, longest);

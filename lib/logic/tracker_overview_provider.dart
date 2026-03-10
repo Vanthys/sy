@@ -12,13 +12,18 @@ final trackerOverviewProvider = StreamProvider.family<List<double>, String>((
 
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
-  final start = today.subtract(const Duration(days: historyDays - 1));
+  final start = DateTime(
+    today.year,
+    today.month,
+    today.day - (historyDays - 1),
+  );
 
   return entryRepo.watchEntriesInRange(trackerId, start, today).map((entries) {
     // Create map of all history days initialized to 0
     // Key is normalized DateTime (midnight)
     final dayMap = {
-      for (int i = 0; i < historyDays; i++) start.add(Duration(days: i)): 0.0,
+      for (int i = 0; i < historyDays; i++)
+        DateTime(start.year, start.month, start.day + i): 0.0,
     };
 
     // Fill in tracked quantities

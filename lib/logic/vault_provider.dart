@@ -60,6 +60,16 @@ class VaultNotifier extends StateNotifier<VaultState> {
     final prefs = await SharedPreferences.getInstance();
     return prefs.containsKey(_secretPinKey);
   }
+
+  Future<bool> verifyGeneralPin(String pin) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_generalPinKey) == pin;
+  }
+
+  Future<bool> verifySecretPin(String pin) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_secretPinKey) == pin;
+  }
 }
 
 final vaultProvider = StateNotifierProvider<VaultNotifier, VaultState>((ref) {

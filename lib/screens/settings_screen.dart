@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
 import '../data/database.dart';
+import '../data/providers.dart';
 import '../logic/vault_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -79,6 +80,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _setupPin(bool isSecret) async {
+    final isConfigured = isSecret ? _isSecretConfigured : _isVaultConfigured;
+
+    if (isConfigured) {
+      final oldPinController = TextEditingController();
+      final verified = await showDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => AlertDialog(
+          title: const Text('Verify Current Passphrase'),
+          content: TextField(
+            controller: oldPinController,
+            obscureText: true,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Current Passphrase'),
+            onSubmitted: (val) => Navigator.pop(context, true),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Verify'),
+            ),
+          ],
+        ),
+      );
+
+      if (verified != true) return;
+
+      final oldPin = oldPinController.text;
+      final notifier = ref.read(vaultProvider.notifier);
+      final isValid = isSecret
+          ? await notifier.verifySecretPin(oldPin)
+          : await notifier.verifyGeneralPin(oldPin);
+
+      if (!isValid) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Incorrect current passphrase.')),
+          );
+        }
+        return;
+      }
+
+      _showNewPinDialog(isSecret, oldPin: oldPin);
+    } else {
+      _showNewPinDialog(isSecret);
+    }
+  }
+
+  Future<void> _showNewPinDialog(bool isSecret, {String? oldPin}) async {
     final controller = isSecret ? _secretPinController : _generalPinController;
     controller.clear();
 
@@ -101,9 +155,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 controller: controller,
                 obscureText: true,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Passphrase'),
-                onSubmitted: (_) =>
-                    _savePin(controller.text, isSecret, context),
+                decoration: const InputDecoration(labelText: 'New Passphrase'),
+                onSubmitted: (_) => _savePin(
+                  controller.text,
+                  isSecret,
+                  context,
+                  oldPin: oldPin,
+                ),
               ),
             ],
           ),
@@ -113,7 +171,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => _savePin(controller.text, isSecret, context),
+              onPressed: () =>
+                  _savePin(controller.text, isSecret, context, oldPin: oldPin),
               child: const Text('Save'),
             ),
           ],
@@ -126,8 +185,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _savePin(
     String input,
     bool isSecret,
-    BuildContext dialogContext,
-  ) async {
+    BuildContext dialogContext, {
+    String? oldPin,
+  }) async {
     if (input.trim().isEmpty) {
       ScaffoldMessenger.of(dialogContext).showSnackBar(
         const SnackBar(content: Text('Passphrase cannot be empty.')),
@@ -135,15 +195,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
+    final repo = ref.read(trackerRepositoryProvider);
+
     if (isSecret) {
-      // Basic check: Ensure they don't accidentally make it identical to the general PIN (if we can easily verify it, but usually we can't easily read shared prefs synchronously here. However we can just enforce it mathematically later. For UX, we just let them save it.)
+      if (oldPin != null) {
+        await repo.rekeyVault(PrivacyLevel.secret, oldPin, input);
+      }
       await ref.read(vaultProvider.notifier).setSecretPin(input);
     } else {
+      if (oldPin != null) {
+        await repo.rekeyVault(PrivacyLevel.vault, oldPin, input);
+      }
       await ref.read(vaultProvider.notifier).setGeneralPin(input);
     }
 
     if (dialogContext.mounted) {
       Navigator.pop(dialogContext);
+      ScaffoldMessenger.of(dialogContext).showSnackBar(
+        const SnackBar(content: Text('Vault Passphrase saved successfully.')),
+      );
     }
   }
 

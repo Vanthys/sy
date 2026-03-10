@@ -44,8 +44,9 @@ class TrackerRepository {
   String _encryptTextIfPrivate(String text, PrivacyLevel level) {
     if (level == PrivacyLevel.standard) return text;
     final key = vaultState.activeKey;
-    if (key == null)
+    if (key == null) {
       throw Exception("Cannot save private tracker: Vault is locked.");
+    }
     return EncryptionUtils.encryptText(text, key);
   }
 
@@ -174,5 +175,40 @@ class TrackerRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+  }
+
+  /// Rekey all trackers matching a specific PrivacyLevel from an old PIN to a new PIN.
+  /// Failing to do this when changing a PIN permanently corrupts the ciphertext.
+  Future<void> rekeyVault(
+    PrivacyLevel level,
+    String oldPin,
+    String newPin,
+  ) async {
+    final rawTrackers = await (db.select(
+      db.trackers,
+    )..where((t) => t.privacyLevel.equals(level.index))).get();
+
+    for (final raw in rawTrackers) {
+      final decTitle = EncryptionUtils.decryptText(raw.title, oldPin);
+      final decDesc = raw.description != null
+          ? EncryptionUtils.decryptText(raw.description!, oldPin)
+          : null;
+
+      // If decryption fails, oldPin is wrong. Avoid corrupting the data permanently.
+      if (decTitle == null) continue;
+
+      final encTitle = EncryptionUtils.encryptText(decTitle, newPin);
+      final encDesc = decDesc != null
+          ? EncryptionUtils.encryptText(decDesc, newPin)
+          : null;
+
+      await (db.update(db.trackers)..where((t) => t.id.equals(raw.id))).write(
+        TrackersCompanion(
+          title: Value(encTitle),
+          description: Value(encDesc),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    }
   }
 }

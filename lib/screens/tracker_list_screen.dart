@@ -87,55 +87,70 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     }
   }
 
-  Future<void> _handleVaultUnlock() async {
+  bool _showVaultHeader = false;
+  final _pinController = TextEditingController();
+  final FocusNode _headerFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    _headerFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitVaultPin(String pin) async {
     final notifier = ref.read(vaultProvider.notifier);
-    final isConfigured = await notifier.isVaultConfigured();
+    final unlocked = await notifier.unlockVault(pin);
 
-    if (!isConfigured) {
+    if (unlocked) {
+      if (mounted) setState(() => _showVaultHeader = false);
+      _pinController.clear();
+      _headerFocus.unfocus();
+    } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Vault is not configured. Go to Settings.'),
-          ),
-        );
+        // Optional: Trigger a shake animation here later
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Incorrect Passphrase')));
+        _pinController.clear();
       }
-      return;
     }
+  }
 
-    if (mounted) {
-      final pinController = TextEditingController();
-      final success = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Unlock Vault'),
-          content: TextField(
-            controller: pinController,
-            obscureText: true,
-            keyboardType: TextInputType.number,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'Enter PIN'),
-            onSubmitted: (val) => Navigator.pop(context, true),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Unlock'),
-            ),
-          ],
-        ),
-      );
+  void _onScrollUpdate(ScrollUpdateNotification notification) async {
+    final vaultState = ref.read(vaultProvider);
 
-      if (success == true) {
-        final unlocked = await notifier.unlockVault(pinController.text);
-        if (!unlocked && mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Incorrect Vault PIN.')));
+    // Disallow triggering if vault is already unlocked
+    if (vaultState.isVaultUnlocked) return;
+
+    // Only detect drag over-scrolls at the TOP of the list
+    if (notification.metrics.pixels < -120 && !_showVaultHeader) {
+      final isConfigured = await ref
+          .read(vaultProvider.notifier)
+          .isVaultConfigured();
+      if (!isConfigured) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vault is not configured. Go to Settings.'),
+            ),
+          );
         }
+        return;
+      }
+
+      if (mounted) {
+        setState(() => _showVaultHeader = true);
+        // Add a tiny delay before requesting focus so animation can begin
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted) _headerFocus.requestFocus();
+        });
+      }
+    } else if (notification.metrics.pixels > 20 && _showVaultHeader) {
+      // Hide if they scroll down normally
+      if (mounted) {
+        setState(() => _showVaultHeader = false);
+        _headerFocus.unfocus();
       }
     }
   }
@@ -177,31 +192,35 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
           }
 
           final trackers = snapshot.data!;
+          Widget listView;
           if (trackers.isEmpty && !vaultState.isVaultUnlocked) {
-            return RefreshIndicator(
-              onRefresh: _handleVaultUnlock,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-                  const Center(child: Text('No trackers yet.')),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: FilledButton(
-                      onPressed: () => _openTrackerEditor(context, ref),
-                      child: const Text('Create your first tracker'),
-                    ),
-                  ),
-                ],
+            listView = ListView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
               ),
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                const Center(child: Text('No trackers yet.')),
+                const SizedBox(height: 8),
+                Center(
+                  child: FilledButton(
+                    onPressed: () => _openTrackerEditor(context, ref),
+                    child: const Text('Create your first tracker'),
+                  ),
+                ),
+              ],
             );
-          }
-
-          return RefreshIndicator(
-            onRefresh: _handleVaultUnlock,
-            child: ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(8),
+          } else {
+            listView = ListView.separated(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              padding: const EdgeInsets.only(
+                top: 8,
+                left: 8,
+                right: 8,
+                bottom: 80,
+              ),
               separatorBuilder: (_, _) => const SizedBox(height: 0),
               itemCount: trackers.length + (vaultState.isVaultUnlocked ? 1 : 0),
               itemBuilder: (context, i) {
@@ -270,6 +289,93 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                   onDelete: () => _deleteTracker(context, ref, tracker),
                 );
               },
+            );
+          }
+
+          return NotificationListener<ScrollUpdateNotification>(
+            onNotification: (notification) {
+              _onScrollUpdate(notification);
+              return false;
+            },
+            child: Stack(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    if (_showVaultHeader) {
+                      setState(() => _showVaultHeader = false);
+                      _headerFocus.unfocus();
+                    }
+                  },
+                  child: listView,
+                ),
+
+                // Dimming Backdrop
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: !_showVaultHeader,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _showVaultHeader = false);
+                        _headerFocus.unfocus();
+                      },
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 300),
+                        opacity: _showVaultHeader ? 1.0 : 0.0,
+                        child: Container(color: Colors.black54),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Animated Vault Header
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOutCubic,
+                  top: _showVaultHeader ? 16 : -100,
+                  left: 16,
+                  right: 16,
+                  child: Material(
+                    elevation: 8,
+                    shadowColor: Colors.black26,
+                    borderRadius: BorderRadius.circular(100),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.lock_outline, size: 20),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: _pinController,
+                              focusNode: _headerFocus,
+                              obscureText: true,
+                              decoration: const InputDecoration(
+                                hintText: 'Passphrase',
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              onSubmitted: _submitVaultPin,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: () {
+                              setState(() => _showVaultHeader = false);
+                              _headerFocus.unfocus();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         },

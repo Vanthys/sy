@@ -78,7 +78,9 @@ final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
 
     // 5. Weekday Distribution (1=Mon, 7=Sun as per Dart/ISO)
     final distribution = <int, int>{};
-    for (int i = 1; i <= 7; i++) distribution[i] = 0;
+    for (int i = 1; i <= 7; i++) {
+      distribution[i] = 0;
+    }
 
     for (final entry in meaningfulEntries) {
       distribution[entry.date.weekday] =
@@ -86,7 +88,7 @@ final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
     }
 
     // 6. Monthly Average (last 30 days)
-    final thirtyDaysAgo = todayMidnight.subtract(const Duration(days: 29));
+    final thirtyDaysAgo = DateTime(todayMidnight.year, todayMidnight.month, todayMidnight.day - 29);
     final recentEntries = meaningfulEntries.where(
       (e) => !e.date.isBefore(thirtyDaysAgo),
     );
