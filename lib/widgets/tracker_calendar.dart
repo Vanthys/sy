@@ -83,10 +83,9 @@ class _TrackerCalendarState extends ConsumerState<TrackerCalendar> {
                     onTap: () async {
                       final result = await showTrackerValueBottomSheet(
                         context: context,
+                        tracker: widget.tracker,
                         date: dayData.date,
                         initialAmount: dayData.entry?.quantity ?? 0,
-                        unitName: widget.tracker.config.unit ?? 'units',
-                        maxValue: widget.tracker.config.maxValue ?? 12,
                       );
                       if (result != null) {
                         await ref

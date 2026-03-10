@@ -20,7 +20,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
   void initState() {
     super.initState();
     // Refresh streaks quietly in the background after the first frame
-    Future.microtask(() => ref.read(refreshStreaksProvider.future));
+    Future.microtask(() => ref.read(refreshStreaksProvider(false).future));
   }
 
   Future<void> _openTrackerEditor(
@@ -46,6 +46,8 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
 
     if (result == true && context.mounted) {
       ref.invalidate(refreshStreaksProvider);
+      // Trigger a forced refresh
+      ref.read(refreshStreaksProvider(true).future);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

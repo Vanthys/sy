@@ -26,8 +26,12 @@ final entryRepositoryProvider = Provider<EntryRepository>((ref) {
   return EntryRepository(db);
 });
 
-/// A provider that refreshes all streaks when watched.
-final refreshStreaksProvider = FutureProvider<void>((ref) async {
+/// A provider that refreshes all streaks.
+/// Passing true forces a full recalculation even if already done today.
+final refreshStreaksProvider = FutureProvider.family<void, bool>((
+  ref,
+  force,
+) async {
   final repo = ref.watch(entryRepositoryProvider);
-  await repo.refreshAllStreaks();
+  await repo.refreshAllStreaks(force: force);
 });

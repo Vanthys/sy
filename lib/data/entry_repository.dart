@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drift/drift.dart';
 import '/data/database.dart';
 
@@ -111,7 +112,18 @@ class EntryRepository {
   // ------------------------------------------------------------
   // 🔥 NEW — Streak Recalculation & Tracker Update
   // ------------------------------------------------------------
-  Future<void> refreshAllStreaks() async {
+  Future<void> refreshAllStreaks({bool force = false}) async {
+    if (!force) {
+      final prefs = await SharedPreferences.getInstance();
+      final lastRefresh = prefs.getString('last_streak_refresh_date');
+      final todayStr = DateTime.now().toIso8601String().split('T').first;
+
+      if (lastRefresh == todayStr) {
+        // Already refreshed today, skip unless forced
+        return;
+      }
+    }
+
     final trackers = await db.select(db.trackers).get();
 
     // Fetch all entries for all trackers in one go to minimize DB calls
@@ -143,6 +155,11 @@ class EntryRepository {
         );
       }
     });
+
+    // Save the refresh date
+    final prefs = await SharedPreferences.getInstance();
+    final todayStr = DateTime.now().toIso8601String().split('T').first;
+    await prefs.setString('last_streak_refresh_date', todayStr);
   }
 
   // ------------------------------------------------------------

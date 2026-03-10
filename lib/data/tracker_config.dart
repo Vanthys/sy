@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
 
-enum InputType { number, slider, toggle, timer, text }
+enum InputType { number, toggle, choice, slider, timer, text }
 
 class TrackerConfig {
   final double? maxValue;
@@ -9,6 +9,7 @@ class TrackerConfig {
   final String? unit;
   final List<String>? intensityColors;
   final List<String>? streakColors;
+  final List<String>? options;
 
   const TrackerConfig({
     this.maxValue,
@@ -16,6 +17,7 @@ class TrackerConfig {
     this.unit,
     this.intensityColors,
     this.streakColors,
+    this.options,
   });
 
   factory TrackerConfig.fromJson(Map<String, dynamic> json) {
@@ -48,6 +50,13 @@ class TrackerConfig {
       parsedStreak = legacyGradients;
     }
 
+    List<String>? parsedOptions;
+    if (json['options'] != null) {
+      parsedOptions = (json['options'] as List)
+          .map((e) => e.toString())
+          .toList();
+    }
+
     return TrackerConfig(
       maxValue: (json['maxValue'] as num?)?.toDouble(),
       inputType: InputType.values.firstWhere(
@@ -57,6 +66,7 @@ class TrackerConfig {
       unit: json['unit'] as String?,
       intensityColors: parsedIntensity,
       streakColors: parsedStreak,
+      options: parsedOptions,
     );
   }
 
@@ -66,6 +76,7 @@ class TrackerConfig {
     'unit': unit,
     'intensityColors': intensityColors,
     'streakColors': streakColors,
+    'options': options,
   };
 }
 

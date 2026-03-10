@@ -9,43 +9,75 @@ import 'screens/tracker_list_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Load light theme
-  final lightThemeStr = await rootBundle.loadString('assets/light_theme.json');
-  final lightThemeJson = jsonDecode(lightThemeStr);
-  final lightBase = ThemeDecoder.decodeThemeData(lightThemeJson)!;
-  final lightTheme = lightBase.copyWith(
-    textTheme: GoogleFonts.jetBrainsMonoTextTheme(lightBase.textTheme),
-  );
-
-  // Load dark theme
-  final darkThemeStr = await rootBundle.loadString('assets/dark_theme.json');
-  final darkThemeJson = jsonDecode(darkThemeStr);
-  final darkBase = ThemeDecoder.decodeThemeData(darkThemeJson)!;
-  final darkTheme = darkBase.copyWith(
-    textTheme: GoogleFonts.jetBrainsMonoTextTheme(darkBase.textTheme),
-  );
-
-  runApp(
-    ProviderScope(
-      child: SyApp(lightTheme: lightTheme, darkTheme: darkTheme),
-    ),
-  );
+  runApp(const ProviderScope(child: SyApp()));
 }
 
-class SyApp extends StatelessWidget {
-  final ThemeData lightTheme;
-  final ThemeData darkTheme;
+class SyApp extends StatefulWidget {
+  const SyApp({super.key});
 
-  const SyApp({super.key, required this.lightTheme, required this.darkTheme});
+  @override
+  State<SyApp> createState() => _SyAppState();
+}
+
+class _SyAppState extends State<SyApp> {
+  ThemeData? _lightTheme;
+  ThemeData? _darkTheme;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemes();
+  }
+
+  Future<void> _loadThemes() async {
+    try {
+      // Load themes in parallel
+      final themes = await Future.wait([
+        _loadTheme('assets/light_theme.json'),
+        _loadTheme('assets/dark_theme.json'),
+      ]);
+
+      if (mounted) {
+        setState(() {
+          _lightTheme = themes[0];
+          _darkTheme = themes[1];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading themes: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<ThemeData> _loadTheme(String path) async {
+    final themeStr = await rootBundle.loadString(path);
+    // Decoding large JSON can be heavy, but rootBundle.loadString is already async.
+    // We decode in a background isolate for maximum smoothness if needed,
+    // but simple async is a good start.
+    final themeJson = jsonDecode(themeStr);
+    final base = ThemeDecoder.decodeThemeData(themeJson)!;
+    return base.copyWith(
+      textTheme: GoogleFonts.jetBrainsMonoTextTheme(base.textTheme),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const MaterialApp(
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
+
     return MaterialApp(
       title: 'Streak Tracker',
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      themeMode: ThemeMode.system, // Automatically switches
+      theme: _lightTheme ?? ThemeData.light(),
+      darkTheme: _darkTheme ?? ThemeData.dark(),
+      themeMode: ThemeMode.system,
       home: const TrackerListScreen(),
     );
   }

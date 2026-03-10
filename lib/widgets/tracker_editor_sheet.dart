@@ -27,11 +27,10 @@ class TrackerEditorSheet extends StatefulWidget {
 class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
-  late final TextEditingController _unitController;
-  late final TextEditingController _unitAbbrController;
   late StreakType _streakType;
   late PrivacyLevel _privacyLevel;
   late TrackerConfig _config;
+  late List<TextEditingController> _optionControllers;
 
   String? _titleError;
   bool _isSubmitting = false;
@@ -48,8 +47,6 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
     _descriptionController = TextEditingController(
       text: existing?.description ?? '',
     );
-    _unitController = TextEditingController();
-    _unitAbbrController = TextEditingController();
     _streakType = existing?.streakType ?? StreakType.continued;
     _privacyLevel = existing?.privacyLevel ?? PrivacyLevel.standard;
 
@@ -64,14 +61,18 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
         );
 
     // Initialize controllers from config
-    _unitController.text = _config.unit ?? '';
+    _optionControllers = (_config.options ?? ['Option 1', 'Option 2'])
+        .map((opt) => TextEditingController(text: opt))
+        .toList();
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _unitController.dispose();
+    for (final c in _optionControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -87,10 +88,18 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
     // Update config with latest UI values
     final updatedConfig = TrackerConfig(
       inputType: _config.inputType,
-      unit: _unitController.text.trim(),
+      unit: _config.unit,
       intensityColors: _config.intensityColors,
       streakColors: _config.streakColors,
-      maxValue: _config.maxValue,
+      maxValue: _config.inputType == InputType.choice
+          ? _optionControllers.length.toDouble()
+          : _config.maxValue,
+      options: _config.inputType == InputType.choice
+          ? _optionControllers
+                .map((c) => c.text.trim())
+                .where((t) => t.isNotEmpty)
+                .toList()
+          : null,
     );
 
     try {
@@ -179,7 +188,7 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
               const SizedBox(height: 12),
 
               DropdownButtonFormField<StreakType>(
-                initialValue: _streakType,
+                value: _streakType,
                 decoration: const InputDecoration(labelText: 'Streak type'),
                 onChanged: (value) {
                   if (value != null) setState(() => _streakType = value);
@@ -196,6 +205,85 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                 ],
               ),
               const SizedBox(height: 16),
+
+              DropdownButtonFormField<InputType>(
+                value: _config.inputType,
+                decoration: const InputDecoration(labelText: 'Input Type'),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _config = TrackerConfig(
+                        inputType: value,
+                        maxValue: _config.maxValue,
+                        unit: _config.unit,
+                        intensityColors: _config.intensityColors,
+                        streakColors: _config.streakColors,
+                        options: _config.options,
+                      );
+                    });
+                  }
+                },
+                items: const [
+                  DropdownMenuItem(
+                    value: InputType.number,
+                    child: Text('Numeric Value'),
+                  ),
+                  DropdownMenuItem(
+                    value: InputType.toggle,
+                    child: Text('Binary (Yes/No)'),
+                  ),
+                  DropdownMenuItem(
+                    value: InputType.choice,
+                    child: Text('Multiple Choice'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              if (_config.inputType == InputType.choice) ...[
+                Text('Options', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                ...List.generate(_optionControllers.length, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _optionControllers[index],
+                            decoration: InputDecoration(
+                              labelText: 'Option ${index + 1}',
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline),
+                          onPressed: _optionControllers.length > 2
+                              ? () {
+                                  setState(() {
+                                    _optionControllers
+                                        .removeAt(index)
+                                        .dispose();
+                                  });
+                                }
+                              : null,
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _optionControllers.add(TextEditingController());
+                    });
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Option'),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               if (widget.vaultState.isVaultUnlocked) ...[
                 Text(
@@ -304,18 +392,6 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: _unitController,
-                      decoration: const InputDecoration(labelText: 'Unit name'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _unitAbbrController,
-                      decoration: const InputDecoration(
-                        labelText: 'Unit abbreviation',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
                     Text(
                       'More customization options coming soon…',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
