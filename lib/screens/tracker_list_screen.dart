@@ -20,7 +20,13 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
   void initState() {
     super.initState();
     // Refresh streaks quietly in the background after the first frame
-    Future.microtask(() => ref.read(refreshStreaksProvider(false).future));
+    Future.microtask(() async {
+      try {
+        await ref.read(refreshStreaksProvider(false).future);
+      } catch (_) {
+        // Isar may not be ready yet — this is fire-and-forget
+      }
+    });
   }
 
   Future<void> _openTrackerEditor(
@@ -28,8 +34,9 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     WidgetRef ref, {
     Tracker? existing,
   }) async {
-    final repo = ref.read(trackerRepositoryProvider);
+    final repo = await ref.read(trackerRepositoryProvider.future);
     final vaultState = ref.read(vaultProvider);
+    if (!context.mounted) return;
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -46,7 +53,6 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
 
     if (result == true && context.mounted) {
       ref.invalidate(refreshStreaksProvider);
-      // Trigger a forced refresh
       ref.read(refreshStreaksProvider(true).future);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -85,7 +91,8 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     );
 
     if (confirmed == true) {
-      await ref.read(trackerRepositoryProvider).deleteTracker(t.id);
+      final repo = await ref.read(trackerRepositoryProvider.future);
+      await repo.deleteTracker(t.id);
     }
   }
 
@@ -159,7 +166,8 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final repo = ref.watch(trackerRepositoryProvider);
+    // Watch the combined stream: handles loading/error from Isar + live updates
+    final trackersAsync = ref.watch(trackerListProvider);
     final vaultState = ref.watch(vaultProvider);
 
     return Scaffold(
@@ -183,17 +191,10 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
         icon: const Icon(Icons.add),
         label: const Text('New Tracker'),
       ),
-      body: StreamBuilder<List<Tracker>>(
-        stream: repo.watchAllTrackers(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final trackers = snapshot.data!;
+      body: trackersAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, st) => Center(child: Text('Error loading data:\n$e')),
+        data: (trackers) {
           Widget listView;
           if (trackers.isEmpty && !vaultState.isVaultUnlocked) {
             listView = ListView(

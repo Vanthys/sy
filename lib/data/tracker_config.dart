@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:drift/drift.dart';
 
 enum InputType { number, toggle, choice, slider, timer, text }
 
@@ -78,15 +77,4 @@ class TrackerConfig {
     'streakColors': streakColors,
     'options': options,
   };
-}
-
-class TrackerConfigConverter extends TypeConverter<TrackerConfig, String> {
-  const TrackerConfigConverter();
-
-  @override
-  TrackerConfig fromSql(String fromDb) =>
-      TrackerConfig.fromJson(jsonDecode(fromDb));
-
-  @override
-  String toSql(TrackerConfig value) => jsonEncode(value.toJson());
 }

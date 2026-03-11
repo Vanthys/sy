@@ -1,107 +1,104 @@
-//./lib/data/database.dart
-import 'package:uuid/uuid.dart';
-import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
-import 'package:path_provider/path_provider.dart';
+// data/database.dart
+// Pure Dart data classes replacing the Drift-generated database schema.
+// Value<T> is provided locally to preserve the existing copyWith API in tracker_repository.dart.
 
-import 'tracker_config.dart';
+import '/data/tracker_config.dart';
 
-part 'database.g.dart';
+// ---------------------------------------------------------------------------
+// Value<T> — minimal shim to replace the Drift Value type used in copyWith
+// ---------------------------------------------------------------------------
+
+class Value<T> {
+  final T value;
+  const Value(this.value);
+  static Value<T?> absentIfNull<T>(T? val) => Value(val);
+  static const Value<Object?> absent = Value(null);
+}
+
+// ---------------------------------------------------------------------------
+// Enums (unchanged)
+// ---------------------------------------------------------------------------
 
 enum StreakType { continued, abstinence }
 
 enum PrivacyLevel { standard, vault, secret }
 
-@DataClassName('Tracker')
-class Trackers extends Table {
-  TextColumn get id => text().clientDefault(() => const Uuid().v4())();
+// ---------------------------------------------------------------------------
+// Tracker — replaces the Drift-generated data class
+// ---------------------------------------------------------------------------
 
-  TextColumn get title => text()();
-  TextColumn get description => text().nullable()();
+class Tracker {
+  final String id;
+  final String title;
+  final String? description;
+  final StreakType streakType;
+  final PrivacyLevel privacyLevel;
+  final TrackerConfig config;
+  final int currentStreak;
+  final int longestStreak;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
-  IntColumn get streakType => intEnum<StreakType>().named('streak_type')();
-  IntColumn get privacyLevel => intEnum<PrivacyLevel>()
-      .withDefault(const Constant(0))
-      .named('privacy_level')();
+  const Tracker({
+    required this.id,
+    required this.title,
+    this.description,
+    required this.streakType,
+    this.privacyLevel = PrivacyLevel.standard,
+    required this.config,
+    this.currentStreak = 0,
+    this.longestStreak = 0,
+    required this.createdAt,
+    required this.updatedAt,
+  });
 
-  TextColumn get config => text().map(const TrackerConfigConverter())();
-
-  IntColumn get currentStreak =>
-      integer().withDefault(const Constant(0)).named('current_streak')();
-  IntColumn get longestStreak =>
-      integer().withDefault(const Constant(0)).named('longest_streak')();
-
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime).named('created_at')();
-  DateTimeColumn get updatedAt =>
-      dateTime().withDefault(currentDateAndTime).named('updated_at')();
-
-  @override
-  Set<Column<Object>> get primaryKey => {id};
-}
-
-@DataClassName('Entry')
-@TableIndex(name: 'entry_index', columns: {#date})
-class Entries extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  TextColumn get tracker => text().references(Trackers, #id)();
-
-  DateTimeColumn get date => dateTime()();
-  RealColumn get quantity => real()();
-  TextColumn get comment => text().nullable()();
-
-  DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime).named('created_at')();
-  DateTimeColumn get updatedAt =>
-      dateTime().withDefault(currentDateAndTime).named('updated_at')();
-}
-
-@DriftDatabase(tables: [Trackers, Entries])
-class AppDatabase extends _$AppDatabase {
-  static const String dbName = 'trackers.sqlite';
-
-  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
-
-  @override
-  int get schemaVersion => 7;
-
-  @override
-  MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) async {
-      await m.createAll();
-    },
-    onUpgrade: (m, from, to) async {
-      print('Upgrading database from version $from to $to...');
-
-      if (from < 6) {
-        // Cleanup: remove old views that were using hardcoded dates
-        // and potentially stale indices.
-        await m.issueCustomQuery('DROP VIEW IF EXISTS recent_activity;');
-        await m.issueCustomQuery('DROP VIEW IF EXISTS entry_stats;');
-        await m.issueCustomQuery('DROP INDEX IF EXISTS entry_index;');
-
-        await m.createAll();
-      }
-
-      if (from < 7) {
-        await m.addColumn(
-          trackers,
-          trackers.privacyLevel as GeneratedColumn<Object>,
-        );
-      }
-    },
-    beforeOpen: (details) async {
-      print('Database ready (version ${details.versionNow})');
-    },
-  );
-
-  static QueryExecutor _openConnection() {
-    return driftDatabase(
-      name:
-          'trackers', // uses dbName internally if not provided, but 'trackers' is the base name
-      native: const DriftNativeOptions(
-        databaseDirectory: getApplicationSupportDirectory,
-      ),
+  Tracker copyWith({
+    String? id,
+    String? title,
+    Value<String?>? description,
+    StreakType? streakType,
+    PrivacyLevel? privacyLevel,
+    TrackerConfig? config,
+    int? currentStreak,
+    int? longestStreak,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Tracker(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description != null ? description.value : this.description,
+      streakType: streakType ?? this.streakType,
+      privacyLevel: privacyLevel ?? this.privacyLevel,
+      config: config ?? this.config,
+      currentStreak: currentStreak ?? this.currentStreak,
+      longestStreak: longestStreak ?? this.longestStreak,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Entry — replaces the Drift-generated data class
+// ---------------------------------------------------------------------------
+
+class Entry {
+  final int id;
+  final String tracker; // trackerId UUID
+  final DateTime date;
+  final double quantity;
+  final String? comment;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const Entry({
+    required this.id,
+    required this.tracker,
+    required this.date,
+    required this.quantity,
+    this.comment,
+    required this.createdAt,
+    required this.updatedAt,
+  });
 }

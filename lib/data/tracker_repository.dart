@@ -1,21 +1,49 @@
-import 'package:drift/drift.dart';
+import 'dart:convert';
+import 'package:isar_community/isar.dart';
+import 'package:uuid/uuid.dart';
 import '/data/database.dart';
+import '/data/schemas/tracker_schema.dart';
+import '/data/schemas/entry_schema.dart';
+import '/data/tracker_config.dart';
 import '/logic/vault_provider.dart';
 import '/utils/encryption_utils.dart';
-import 'tracker_config.dart';
+
+/// Adapts [IsarTracker] rows to the app-level [Tracker] data class.
+extension IsarTrackerConversion on IsarTracker {
+  Tracker toTracker() {
+    final config = TrackerConfig.fromJson(jsonDecode(configJson));
+    return Tracker(
+      id: uuid,
+      title: title,
+      description: description,
+      streakType: StreakType.values[streakTypeIndex],
+      privacyLevel: PrivacyLevel.values[privacyLevelIndex],
+      config: config,
+      currentStreak: currentStreak,
+      longestStreak: longestStreak,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+}
 
 class TrackerRepository {
-  final AppDatabase db;
+  final Isar _isar;
   final VaultState vaultState;
 
-  TrackerRepository(this.db, this.vaultState);
+  TrackerRepository(this._isar, this.vaultState);
 
-  /// Helper to decrypt a tracker if necessary.
-  /// If decryption fails (wrong key) or it's standard plain text, returns as-is (or with a "Locked" placeholder).
+  // shorthand collections
+  IsarCollection<IsarTracker> get _trackers => _isar.collection<IsarTracker>();
+  IsarCollection<IsarEntry> get _entries => _isar.collection<IsarEntry>();
+
+  // ------------------------------------------------------------------
+  // Helpers (encryption / decryption — unchanged from Drift version)
+  // ------------------------------------------------------------------
+
   Tracker _decryptTracker(Tracker t) {
     if (t.privacyLevel == PrivacyLevel.standard) return t;
 
-    // It's a private tracker. We need the active key to decrypt.
     final key = vaultState.activeKey;
     if (key == null) {
       return t.copyWith(
@@ -25,11 +53,9 @@ class TrackerRepository {
     }
 
     final decTitle = EncryptionUtils.decryptText(t.title, key);
-    final decDesc = t.description != null
-        ? EncryptionUtils.decryptText(t.description!, key)
-        : null;
+    final decDesc =
+        t.description != null ? EncryptionUtils.decryptText(t.description!, key) : null;
 
-    // If decryption fails (returns null), it means the key is wrong (e.g. using General PIN on Secret Tracker)
     if (decTitle == null) {
       return t.copyWith(
         title: 'Encrypted Tracker',
@@ -40,54 +66,44 @@ class TrackerRepository {
     return t.copyWith(title: decTitle, description: Value(decDesc));
   }
 
-  /// Helper to encrypt plain text if the privacy level requires it.
   String _encryptTextIfPrivate(String text, PrivacyLevel level) {
     if (level == PrivacyLevel.standard) return text;
     final key = vaultState.activeKey;
-    if (key == null) {
-      throw Exception("Cannot save private tracker: Vault is locked.");
-    }
+    if (key == null) throw Exception('Cannot save private tracker: Vault is locked.');
     return EncryptionUtils.encryptText(text, key);
   }
 
-  /// Fetch all trackers, ordered by creation date (newest first)
-  /// Only fetches trackers up to the currently unlocked privacy level.
+  // ------------------------------------------------------------------
+  // Queries
+  // ------------------------------------------------------------------
+
   Future<List<Tracker>> getAllTrackers() async {
-    final rawTrackers =
-        await (db.select(db.trackers)
-              ..where(
-                (t) => t.privacyLevel.isSmallerOrEqualValue(
-                  vaultState.unlockedLevel.index,
-                ),
-              )
-              ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-            .get();
-
-    return rawTrackers.map(_decryptTracker).toList();
+    final raw = await _trackers
+        .filter()
+        .privacyLevelIndexLessThan(vaultState.unlockedLevel.index + 1)
+        .sortByCreatedAtDesc()
+        .findAll();
+    return raw.map((r) => _decryptTracker(r.toTracker())).toList();
   }
 
-  /// Stream all trackers to listen for live updates
   Stream<List<Tracker>> watchAllTrackers() {
-    return (db.select(db.trackers)
-          ..where(
-            (t) => t.privacyLevel.isSmallerOrEqualValue(
-              vaultState.unlockedLevel.index,
-            ),
-          )
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-        .watch()
-        .map((list) => list.map(_decryptTracker).toList());
+    return _trackers
+        .filter()
+        .privacyLevelIndexLessThan(vaultState.unlockedLevel.index + 1)
+        .sortByCreatedAtDesc()
+        .watch(fireImmediately: true)
+        .map((list) => list.map((r) => _decryptTracker(r.toTracker())).toList());
   }
 
-  /// Get a single tracker by ID
-  Future<Tracker?> getTrackerById(String id) async {
-    final t = await (db.select(
-      db.trackers,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
-    return t != null ? _decryptTracker(t) : null;
+  Future<Tracker?> getTrackerById(String uuid) async {
+    final raw = await _trackers.filter().uuidEqualTo(uuid).findFirst();
+    return raw != null ? _decryptTracker(raw.toTracker()) : null;
   }
 
-  /// Create a new tracker with a given configuration
+  // ------------------------------------------------------------------
+  // Mutations
+  // ------------------------------------------------------------------
+
   Future<void> createTracker({
     required String title,
     String? description,
@@ -96,30 +112,26 @@ class TrackerRepository {
     PrivacyLevel privacyLevel = PrivacyLevel.standard,
   }) async {
     final now = DateTime.now();
-
     final encTitle = _encryptTextIfPrivate(title, privacyLevel);
-    final encDesc = description != null
-        ? _encryptTextIfPrivate(description, privacyLevel)
-        : null;
+    final encDesc = description != null ? _encryptTextIfPrivate(description, privacyLevel) : null;
 
-    await db
-        .into(db.trackers)
-        .insert(
-          TrackersCompanion.insert(
-            title: encTitle,
-            description: Value(encDesc),
-            streakType: streakType,
-            privacyLevel: Value(privacyLevel),
-            config: config,
-            createdAt: Value(now),
-            updatedAt: Value(now),
-          ),
-        );
+    final row = IsarTracker()
+      ..uuid = const Uuid().v4()
+      ..title = encTitle
+      ..description = encDesc
+      ..streakTypeIndex = streakType.index
+      ..privacyLevelIndex = privacyLevel.index
+      ..configJson = jsonEncode(config.toJson())
+      ..currentStreak = 0
+      ..longestStreak = 0
+      ..createdAt = now
+      ..updatedAt = now;
+
+    await _isar.writeTxn(() => _trackers.put(row));
   }
 
-  /// Update tracker info (title, description, streaks, etc.)
   Future<void> updateTracker(
-    String id, {
+    String uuid, {
     String? title,
     String? description,
     StreakType? streakType,
@@ -128,87 +140,61 @@ class TrackerRepository {
     int? currentStreak,
     int? longestStreak,
   }) async {
-    // We need to fetch the existing tracker to know its privacy level if not provided
-    final existing = await (db.select(
-      db.trackers,
-    )..where((t) => t.id.equals(id))).getSingle();
-    final targetLevel = privacyLevel ?? existing.privacyLevel;
+    final existing = await _trackers.filter().uuidEqualTo(uuid).findFirst();
+    if (existing == null) return;
 
-    Value<String>? encTitleVal;
-    if (title != null) {
-      encTitleVal = Value(_encryptTextIfPrivate(title, targetLevel));
-    }
+    final targetLevel = privacyLevel ?? PrivacyLevel.values[existing.privacyLevelIndex];
 
-    Value<String?>? encDescVal;
-    if (description != null) {
-      encDescVal = Value(_encryptTextIfPrivate(description, targetLevel));
-    }
+    if (title != null) existing.title = _encryptTextIfPrivate(title, targetLevel);
+    if (description != null) existing.description = _encryptTextIfPrivate(description, targetLevel);
+    if (streakType != null) existing.streakTypeIndex = streakType.index;
+    if (privacyLevel != null) existing.privacyLevelIndex = privacyLevel.index;
+    if (config != null) existing.configJson = jsonEncode(config.toJson());
+    if (currentStreak != null) existing.currentStreak = currentStreak;
+    if (longestStreak != null) existing.longestStreak = longestStreak;
+    existing.updatedAt = DateTime.now();
 
-    await (db.update(db.trackers)..where((t) => t.id.equals(id))).write(
-      TrackersCompanion(
-        title: encTitleVal ?? const Value.absent(),
-        description: encDescVal ?? const Value.absent(),
-        streakType: Value.absentIfNull(streakType),
-        privacyLevel: Value.absentIfNull(privacyLevel),
-        config: Value.absentIfNull(config),
-        currentStreak: Value.absentIfNull(currentStreak),
-        longestStreak: Value.absentIfNull(longestStreak),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+    await _isar.writeTxn(() => _trackers.put(existing));
   }
 
-  /// Delete tracker and optionally its entries
-  Future<void> deleteTracker(String id, {bool deleteEntries = true}) async {
-    if (deleteEntries) {
-      await (db.delete(db.entries)..where((e) => e.tracker.equals(id))).go();
-    }
-    await (db.delete(db.trackers)..where((t) => t.id.equals(id))).go();
+  Future<void> deleteTracker(String uuid, {bool deleteEntries = true}) async {
+    await _isar.writeTxn(() async {
+      if (deleteEntries) {
+        await _entries.filter().trackerIdEqualTo(uuid).deleteAll();
+      }
+      await _trackers.filter().uuidEqualTo(uuid).deleteAll();
+    });
   }
 
-  /// Update streak stats only
-  Future<void> updateStreaks(String id, int current, int longest) async {
-    await (db.update(db.trackers)..where((t) => t.id.equals(id))).write(
-      TrackersCompanion(
-        currentStreak: Value(current),
-        longestStreak: Value(longest),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+  Future<void> updateStreaks(String uuid, int current, int longest) async {
+    final row = await _trackers.filter().uuidEqualTo(uuid).findFirst();
+    if (row == null) return;
+    row.currentStreak = current;
+    row.longestStreak = longest;
+    row.updatedAt = DateTime.now();
+    await _isar.writeTxn(() => _trackers.put(row));
   }
 
-  /// Rekey all trackers matching a specific PrivacyLevel from an old PIN to a new PIN.
-  /// Failing to do this when changing a PIN permanently corrupts the ciphertext.
-  Future<void> rekeyVault(
-    PrivacyLevel level,
-    String oldPin,
-    String newPin,
-  ) async {
-    final rawTrackers = await (db.select(
-      db.trackers,
-    )..where((t) => t.privacyLevel.equals(level.index))).get();
+  // ------------------------------------------------------------------
+  // Vault re-key (unchanged logic)
+  // ------------------------------------------------------------------
 
-    for (final raw in rawTrackers) {
-      final decTitle = EncryptionUtils.decryptText(raw.title, oldPin);
-      final decDesc = raw.description != null
-          ? EncryptionUtils.decryptText(raw.description!, oldPin)
-          : null;
+  Future<void> rekeyVault(PrivacyLevel level, String oldPin, String newPin) async {
+    final rows = await _trackers.filter().privacyLevelIndexEqualTo(level.index).findAll();
 
-      // If decryption fails, oldPin is wrong. Avoid corrupting the data permanently.
-      if (decTitle == null) continue;
+    await _isar.writeTxn(() async {
+      for (final row in rows) {
+        final decTitle = EncryptionUtils.decryptText(row.title, oldPin);
+        if (decTitle == null) continue;
+        final decDesc = row.description != null
+            ? EncryptionUtils.decryptText(row.description!, oldPin)
+            : null;
 
-      final encTitle = EncryptionUtils.encryptText(decTitle, newPin);
-      final encDesc = decDesc != null
-          ? EncryptionUtils.encryptText(decDesc, newPin)
-          : null;
-
-      await (db.update(db.trackers)..where((t) => t.id.equals(raw.id))).write(
-        TrackersCompanion(
-          title: Value(encTitle),
-          description: Value(encDesc),
-          updatedAt: Value(DateTime.now()),
-        ),
-      );
-    }
+        row.title = EncryptionUtils.encryptText(decTitle, newPin);
+        row.description = decDesc != null ? EncryptionUtils.encryptText(decDesc, newPin) : null;
+        row.updatedAt = DateTime.now();
+        await _trackers.put(row);
+      }
+    });
   }
 }

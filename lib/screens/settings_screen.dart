@@ -51,7 +51,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _exportDatabase(BuildContext context) async {
     try {
       final dir = await getApplicationSupportDirectory();
-      final dbPath = p.join(dir.path, AppDatabase.dbName);
+      final dbPath = p.join(dir.path, 'trackers.isar');
       final file = File(dbPath);
 
       if (await file.exists()) {
@@ -195,7 +195,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
-    final repo = ref.read(trackerRepositoryProvider);
+    final repo = await ref.read(trackerRepositoryProvider.future);
 
     if (isSecret) {
       if (oldPin != null) {

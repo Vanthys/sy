@@ -7,8 +7,8 @@ const int historyDays = 28;
 final trackerOverviewProvider = StreamProvider.family<List<double>, String>((
   ref,
   trackerId,
-) {
-  final entryRepo = ref.watch(entryRepositoryProvider);
+) async* {
+  final entryRepo = await ref.watch(entryRepositoryProvider.future);
 
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
@@ -18,7 +18,7 @@ final trackerOverviewProvider = StreamProvider.family<List<double>, String>((
     today.day - (historyDays - 1),
   );
 
-  return entryRepo.watchEntriesInRange(trackerId, start, today).map((entries) {
+  yield* entryRepo.watchEntriesInRange(trackerId, start, today).map((entries) {
     // Create map of all history days initialized to 0
     // Key is normalized DateTime (midnight)
     final dayMap = {
