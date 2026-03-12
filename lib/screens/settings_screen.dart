@@ -50,11 +50,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _exportDatabase(BuildContext context) async {
     try {
       final isar = await ref.read(isarProvider.future);
+      if (!mounted) return;
+      
       final dbPath = isar.path;
       if (dbPath == null) throw Exception('Isar path is null');
       final file = File(dbPath);
 
       if (await file.exists()) {
+        if (!context.mounted) return;
         final box = context.findRenderObject() as RenderBox?;
         final params = ShareParams(
           text: 'tracker database backup',
