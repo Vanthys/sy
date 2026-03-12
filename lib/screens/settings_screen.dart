@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../data/database.dart';
 import '../data/providers.dart';
 import '../logic/vault_provider.dart';
+import '../logic/theme_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -55,13 +56,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       if (await file.exists()) {
         final box = context.findRenderObject() as RenderBox?;
-        await Share.shareXFiles(
-          [XFile(dbPath, mimeType: 'application/octet-stream')],
-          text: 'My Streak Tracker Backup',
+        final params = ShareParams(
+          text: 'tracker database backup',
           sharePositionOrigin: box != null
               ? box.localToGlobal(Offset.zero) & box.size
               : null,
+          files: [XFile(dbPath, mimeType: 'application/octet-stream')],
         );
+        await SharePlus.instance.share(params);
       } else {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -231,6 +233,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => _exportDatabase(context),
           ),
           const Divider(),
+          _buildAppearanceSection(context, ref),
+          const Divider(),
           ListTile(
             title: const Text('General Vault Passphrase'),
             subtitle: Text(
@@ -264,6 +268,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               onTap: () => _setupPin(true),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppearanceSection(BuildContext context, WidgetRef ref) {
+    final currentTheme = ref.watch(themeProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Appearance',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.palette),
+            title: const Text('App Theme'),
+            subtitle: const Text('Choose your preferred color scheme.'),
+            trailing: DropdownButton<AppThemeMode>(
+              value: currentTheme,
+              underline: const SizedBox.shrink(),
+              items: AppThemeMode.values.map((mode) {
+                String label = '';
+                switch (mode) {
+                  case AppThemeMode.light:
+                    label = 'Light';
+                    break;
+                  case AppThemeMode.dark:
+                    label = 'Dark';
+                    break;
+                  case AppThemeMode.system:
+                    label = 'System';
+                    break;
+                  case AppThemeMode.amoled:
+                    label = 'AMOLED';
+                    break;
+                }
+                return DropdownMenuItem(value: mode, child: Text(label));
+              }).toList(),
+              onChanged: (mode) {
+                if (mode != null) {
+                  ref.read(themeProvider.notifier).setTheme(mode);
+                }
+              },
+            ),
+          ),
         ],
       ),
     );
