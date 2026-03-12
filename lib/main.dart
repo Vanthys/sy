@@ -9,16 +9,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/tracker_list_screen.dart';
 import 'logic/theme_provider.dart';
+import 'logic/vault_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  
+
   runApp(
     ProviderScope(
-      overrides: [
-        sharedPreferencesProvider.overrideWithValue(prefs),
-      ],
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
       child: const SyApp(),
     ),
   );
@@ -36,11 +35,30 @@ class _SyAppState extends ConsumerState<SyApp> {
   ThemeData? _darkTheme;
   ThemeData? _amoledTheme;
   bool _isLoading = true;
+  AppLifecycleListener? _lifecycleListener;
 
   @override
   void initState() {
     super.initState();
     _loadThemes();
+
+    _lifecycleListener = AppLifecycleListener(
+      onPause: _lockVault,
+      onHide: _lockVault,
+      onInactive: _lockVault,
+      onDetach: _lockVault,
+    );
+  }
+
+  void _lockVault() {
+    // If the provider hasn't been initialized yet, this might throw, but since we ensure it earlier it should be safe.
+    ref.read(vaultProvider.notifier).lockVault();
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadThemes() async {
@@ -70,9 +88,13 @@ class _SyAppState extends ConsumerState<SyApp> {
     final themeStr = await rootBundle.loadString(path);
     final themeJson = jsonDecode(themeStr);
     final base = ThemeDecoder.decodeThemeData(themeJson)!;
-    return base.copyWith(
-      textTheme: GoogleFonts.jetBrainsMonoTextTheme(base.textTheme),
+
+    final cleanBaseTextTheme = ThemeData(brightness: base.brightness).textTheme;
+    final typographyTextTheme = GoogleFonts.jetBrainsMonoTextTheme(
+      cleanBaseTextTheme,
     );
+
+    return base.copyWith(textTheme: typographyTextTheme);
   }
 
   ThemeData _generateAmoledTheme(ThemeData baseDark) {
@@ -129,7 +151,7 @@ class _SyAppState extends ConsumerState<SyApp> {
     }
 
     return MaterialApp(
-      title: 'Streak Tracker',
+      title: 'SY',
       theme: _lightTheme ?? ThemeData.light(),
       darkTheme: activeDarkTheme,
       themeMode: activeThemeMode,

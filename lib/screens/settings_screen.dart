@@ -133,6 +133,60 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  Future<bool> _verifyPinForAction(bool isSecret) async {
+    // If the Vault is already unlocked, we can trust the user for non-destructive preference toggles
+    // like turning on/off biometrics or screen protection, saving them exactly one password entry.
+    // Changing the password still uses _setupPin which explicitly requires the old string.
+    if (ref.read(vaultProvider).isVaultUnlocked) {
+      return true;
+    }
+
+    final oldPinController = TextEditingController();
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Text('Verify Passphrase'),
+        content: TextField(
+          controller: oldPinController,
+          obscureText: true,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Current Passphrase'),
+          onSubmitted: (val) => Navigator.pop(context, true),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    );
+
+    if (verified != true) return false;
+
+    final oldPin = oldPinController.text;
+    final notifier = ref.read(vaultProvider.notifier);
+    final isValid = isSecret
+        ? await notifier.verifySecretPin(oldPin)
+        : await notifier.verifyGeneralPin(oldPin);
+
+    if (!isValid) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Incorrect passphrase.')));
+      }
+      return false;
+    }
+
+    return true;
+  }
+
   Future<void> _showNewPinDialog(bool isSecret, {String? oldPin}) async {
     final controller = isSecret ? _secretPinController : _generalPinController;
     controller.clear();
@@ -236,7 +290,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _buildAppearanceSection(context, ref),
           const Divider(),
           ListTile(
-            title: const Text('General Vault Passphrase'),
+            title: const Text('Vault Passphrase'),
             subtitle: Text(
               _isVaultConfigured
                   ? 'Passphrase is set. Tap to change.'
@@ -250,6 +304,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             onTap: () => _setupPin(false),
           ),
+
+          if (_isVaultConfigured)
+            SwitchListTile(
+              title: const Text('Unlock with Biometrics'),
+              subtitle: const Text('Use FaceID/TouchID to unlock Vault.'),
+              value: vaultState.isBiometricsEnabled,
+              onChanged: (val) async {
+                // Require password verification before enabling OR disabling biometrics
+                final isAuthorized = await _verifyPinForAction(false);
+                if (isAuthorized && mounted) {
+                  ref.read(vaultProvider.notifier).toggleBiometrics(val);
+                }
+              },
+              secondary: const Icon(Icons.fingerprint),
+            ),
+
+          if (_isVaultConfigured)
+            SwitchListTile(
+              title: const Text('Prevent Screenshots & App Switcher'),
+              subtitle: const Text('When the vault is unlocked, block the OS from taking screenshots or app switcher snapshots.'),
+              value: vaultState.isScreenProtectionEnabled,
+              onChanged: (val) async {
+                final isAuthorized = await _verifyPinForAction(false);
+                if (isAuthorized && mounted) {
+                  ref.read(vaultProvider.notifier).toggleScreenProtection(val);
+                }
+              },
+              secondary: const Icon(Icons.screen_lock_portrait),
+            ),
 
           // Only show secret vault option if they have actively unlocked the vault
           if (vaultState.isVaultUnlocked)

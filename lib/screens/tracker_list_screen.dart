@@ -19,6 +19,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     // Refresh streaks quietly in the background after the first frame
     Future.microtask(() async {
       try {
@@ -99,26 +100,39 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
   }
 
   bool _showVaultHeader = false;
+  bool _isUnlocking = false;
   final _pinController = TextEditingController();
   final FocusNode _headerFocus = FocusNode();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _pinController.dispose();
     _headerFocus.dispose();
     super.dispose();
   }
 
   Future<void> _submitVaultPin(String pin) async {
+    if (pin.isEmpty) return;
+    if (mounted) setState(() => _isUnlocking = true);
+
     final notifier = ref.read(vaultProvider.notifier);
     final unlocked = await notifier.unlockVault(pin);
 
     if (unlocked) {
-      if (mounted) setState(() => _showVaultHeader = false);
+      if (mounted) {
+        setState(() {
+          _showVaultHeader = false;
+          _isUnlocking = false;
+        });
+      }
       _pinController.clear();
       _headerFocus.unfocus();
     } else {
       if (mounted) {
+        setState(() => _isUnlocking = false);
         // Optional: Trigger a shake animation here later
         ScaffoldMessenger.of(
           context,
@@ -128,14 +142,28 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     }
   }
 
-  void _onScrollUpdate(ScrollUpdateNotification notification) async {
+  Future<void> _unlockWithBiometrics() async {
+    final notifier = ref.read(vaultProvider.notifier);
+    final unlocked = await notifier.unlockVaultWithBiometrics();
+    if (unlocked) {
+      if (mounted) setState(() => _showVaultHeader = false);
+      _pinController.clear();
+      _headerFocus.unfocus();
+    }
+  }
+
+  void _onScroll() async {
+    if (!_scrollController.hasClients) return;
+    
     final vaultState = ref.read(vaultProvider);
 
     // Disallow triggering if vault is already unlocked
     if (vaultState.isVaultUnlocked) return;
 
+    final pixels = _scrollController.position.pixels;
+
     // Only detect drag over-scrolls at the TOP of the list
-    if (notification.metrics.pixels < -120 && !_showVaultHeader) {
+    if (pixels < -120 && !_showVaultHeader) {
       final isConfigured = await ref
           .read(vaultProvider.notifier)
           .isVaultConfigured();
@@ -157,7 +185,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
           if (mounted) _headerFocus.requestFocus();
         });
       }
-    } else if (notification.metrics.pixels > 20 && _showVaultHeader) {
+    } else if (pixels > 20 && _showVaultHeader) {
       // Hide if they scroll down normally
       if (mounted) {
         setState(() => _showVaultHeader = false);
@@ -200,6 +228,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
           Widget listView;
           if (trackers.isEmpty && !vaultState.isVaultUnlocked) {
             listView = ListView(
+              controller: _scrollController,
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -217,6 +246,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
             );
           } else {
             listView = ListView.separated(
+              controller: _scrollController,
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -297,12 +327,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
             );
           }
 
-          return NotificationListener<ScrollUpdateNotification>(
-            onNotification: (notification) {
-              _onScrollUpdate(notification);
-              return false;
-            },
-            child: Stack(
+          return Stack(
               children: [
                 GestureDetector(
                   onTap: () {
@@ -360,31 +385,51 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                               controller: _pinController,
                               focusNode: _headerFocus,
                               obscureText: true,
+                              readOnly: _isUnlocking,
                               decoration: const InputDecoration(
                                 hintText: 'Passphrase',
                                 border: InputBorder.none,
                                 isDense: true,
                               ),
-                              onSubmitted: _submitVaultPin,
+                              onSubmitted: _isUnlocking ? null : _submitVaultPin,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 20),
-                            onPressed: () {
-                              setState(() => _showVaultHeader = false);
-                              _headerFocus.unfocus();
-                            },
-                          ),
+                          if (_isUnlocking)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 14.0),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          else
+                            IconButton(
+                              icon: const Icon(Icons.arrow_forward),
+                              onPressed: () => _submitVaultPin(_pinController.text),
+                            ),
+                          if (vaultState.isBiometricsEnabled && !_isUnlocking)
+                            IconButton(
+                              icon: const Icon(Icons.fingerprint, size: 20),
+                              onPressed: _unlockWithBiometrics,
+                            ),
+                          if (!_isUnlocking)
+                            IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              onPressed: () {
+                                setState(() => _showVaultHeader = false);
+                                _headerFocus.unfocus();
+                              },
+                            ),
                         ],
                       ),
                     ),
                   ),
                 ),
               ],
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
     );
   }
 }

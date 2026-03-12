@@ -176,22 +176,25 @@ class TrackerRepository {
   }
 
   // ------------------------------------------------------------------
-  // Vault re-key (unchanged logic)
+  // Vault re-key
   // ------------------------------------------------------------------
 
   Future<void> rekeyVault(PrivacyLevel level, String oldPin, String newPin) async {
     final rows = await _trackers.filter().privacyLevelIndexEqualTo(level.index).findAll();
+    
+    final oldKey = EncryptionUtils.deriveKeyFromPin(oldPin);
+    final newKey = EncryptionUtils.deriveKeyFromPin(newPin);
 
     await _isar.writeTxn(() async {
       for (final row in rows) {
-        final decTitle = EncryptionUtils.decryptText(row.title, oldPin);
+        final decTitle = EncryptionUtils.decryptText(row.title, oldKey);
         if (decTitle == null) continue;
         final decDesc = row.description != null
-            ? EncryptionUtils.decryptText(row.description!, oldPin)
+            ? EncryptionUtils.decryptText(row.description!, oldKey)
             : null;
 
-        row.title = EncryptionUtils.encryptText(decTitle, newPin);
-        row.description = decDesc != null ? EncryptionUtils.encryptText(decDesc, newPin) : null;
+        row.title = EncryptionUtils.encryptText(decTitle, newKey);
+        row.description = decDesc != null ? EncryptionUtils.encryptText(decDesc, newKey) : null;
         row.updatedAt = DateTime.now();
         await _trackers.put(row);
       }
