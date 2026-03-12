@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sy3/data/database.dart';
 import '../logic/tracker_calendar_provider.dart';
+import '../data/tracker_config.dart';
 
 // MonthSection is replaced by SliverGrid in TrackerCalendar for performance
 
@@ -13,6 +14,7 @@ class DayBlock extends StatelessWidget {
     this.streakType,
     this.streakColors,
     required this.columnIndex,
+    this.inputType = InputType.number,
   });
 
   final DayData dayData;
@@ -21,6 +23,7 @@ class DayBlock extends StatelessWidget {
   final StreakType? streakType;
   final List<String>? streakColors;
   final int columnIndex;
+  final InputType inputType;
 
   @override
   Widget build(BuildContext context) {
@@ -61,8 +64,12 @@ class DayBlock extends StatelessWidget {
                 borderRadius: borderRadius,
                 gradient: LinearGradient(
                   colors: dayData.streakGradient,
-                  begin: FractionalOffset(-columnIndex.toDouble(), 0.0),
-                  end: FractionalOffset(6.0 - columnIndex.toDouble(), 0.0),
+                  begin: inputType == InputType.choice 
+                      ? const FractionalOffset(0.0, 0.0) 
+                      : FractionalOffset(-columnIndex.toDouble(), 0.0),
+                  end: inputType == InputType.choice
+                      ? const FractionalOffset(1.0, 0.0)
+                      : FractionalOffset(6.0 - columnIndex.toDouble(), 0.0),
                 ),
               ),
             ),
@@ -79,21 +86,29 @@ class DayBlock extends StatelessWidget {
                 borderRadius: borderRadius,
               ),
               child: Center(
-                child: Text(
-                  dayData.date.day.toString(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: inStreak ? FontWeight.w600 : FontWeight.w500,
-                    color: inStreak
-                        ? Colors.white.withAlpha(220)
-                        : hasData
-                        ? textColor
-                        : textColor.withAlpha(200),
-                  ),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.visible,
-                ),
+                child: inputType == InputType.toggle && hasData
+                    ? Icon(
+                        Icons.check,
+                        color: inStreak
+                            ? Colors.white.withAlpha(220)
+                            : Colors.white,
+                        size: 20,
+                      )
+                    : Text(
+                        dayData.date.day.toString(),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: inStreak ? FontWeight.w600 : FontWeight.w500,
+                          color: inStreak
+                              ? Colors.white.withAlpha(220)
+                              : hasData
+                              ? textColor
+                              : textColor.withAlpha(200),
+                        ),
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.visible,
+                      ),
               ),
             ),
           ),

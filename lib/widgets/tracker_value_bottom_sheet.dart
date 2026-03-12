@@ -186,7 +186,7 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
         return Center(
           child: ScrubbableDialField(
             value: widget.initialAmount,
-            maxValue: config.maxValue ?? 12,
+            maxValue: config.intensityGoal ?? config.maxValue ?? 12,
             unitName: config.unit ?? 'units',
             onChanged: (newTotal) {
               setState(() {

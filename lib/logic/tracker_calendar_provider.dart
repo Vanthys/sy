@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../data/database.dart';
 import '../data/providers.dart';
+import '../data/tracker_config.dart';
 import '../utils/color_utils.dart';
 
 // ----------------------------------------
@@ -106,6 +107,18 @@ class TrackerCalendarNotifier extends ChangeNotifier {
   }
 
   List<Color> _parseStreakColors() {
+    if (tracker.config.inputType == InputType.choice &&
+        tracker.config.optionColors != null) {
+      final parsed = tracker.config.optionColors!
+          .map(ColorUtils.parseHexColor)
+          .whereType<Color>()
+          .toList();
+      if (parsed.isNotEmpty) {
+        if (parsed.length == 1) return [parsed.first, parsed.first];
+        return parsed;
+      }
+    }
+
     final colors = tracker.config.streakColors;
     if (colors == null || colors.isEmpty) {
       return [const Color(0xFF2196F3), const Color(0xFF2196F3)];
@@ -242,17 +255,63 @@ class TrackerCalendarNotifier extends ChangeNotifier {
         final tooltip =
             '${DateFormat('yyyy-MM-dd').format(date)}${amount > 0 ? ' - $amount ${tracker.config.unit ?? 'units'}' : ''}';
 
+        final dayColor = tracker.config.inputType == InputType.choice
+            ? ColorUtils.getColorForChoice(
+                (amount - 1).toInt(),
+                optionColors: tracker.config.optionColors,
+                fallback: _intensityColors.isNotEmpty
+                    ? _intensityColors.first
+                    : Colors.blue,
+              )
+            : tracker.config.inputType == InputType.toggle
+            ? (amount > 0
+                  ? (_intensityColors.isNotEmpty
+                        ? _intensityColors.last
+                        : Colors.blue)
+                  : Colors.transparent)
+            : ColorUtils.getColorForAmount(
+                amount,
+                preParsedColors: _intensityColors,
+                maxValue:
+                    tracker.config.intensityGoal ?? tracker.config.maxValue,
+              );
+
+        List<Color> gradient = _streakColors;
+
+        if (inStreak && tracker.config.inputType == InputType.choice) {
+          final yesterday = DateTime(date.year, date.month, date.day - 1);
+          final tomorrow = DateTime(date.year, date.month, date.day + 1);
+
+          Color getChoiceColor(DateTime d) {
+            final e = entryMap[d];
+            if (e != null && e.quantity > 0) {
+              return ColorUtils.getColorForChoice(
+                (e.quantity - 1).toInt(),
+                optionColors: tracker.config.optionColors,
+                fallback: _intensityColors.isNotEmpty
+                    ? _intensityColors.first
+                    : Colors.blue,
+              );
+            }
+            return dayColor;
+          }
+
+          Color prevColor = isStart ? dayColor : getChoiceColor(yesterday);
+          Color nextColor = isEnd ? dayColor : getChoiceColor(tomorrow);
+
+          Color leftColor = Color.lerp(nextColor, dayColor, 0.5) ?? dayColor;
+          Color rightColor = Color.lerp(prevColor, dayColor, 0.5) ?? dayColor;
+
+          gradient = [leftColor, dayColor, rightColor];
+        }
+
         return DayData(
           date: date,
           entry: entry,
           amount: amount,
           tooltip: tooltip,
-          color: ColorUtils.getColorForAmount(
-            amount,
-            preParsedColors: _intensityColors,
-            maxValue: tracker.config.maxValue,
-          ),
-          streakGradient: _streakColors,
+          color: dayColor,
+          streakGradient: gradient,
           inStreak: inStreak,
           isStreakStart: isStart,
           isStreakEnd: isEnd,
@@ -286,10 +345,10 @@ class TrackerCalendarNotifier extends ChangeNotifier {
 
     final entryRepo = await ref.read(entryRepositoryProvider.future);
     final older = await entryRepo.fetchEntriesInRange(
-          tracker.id,
-          newStart,
-          _earliestLoaded.add(const Duration(days: 1)),
-        );
+      tracker.id,
+      newStart,
+      _earliestLoaded.add(const Duration(days: 1)),
+    );
 
     _entries.insertAll(0, older);
     _earliestLoaded = newStart;
