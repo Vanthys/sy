@@ -135,17 +135,18 @@ class TrackerCalendarNotifier extends ChangeNotifier {
 
   void _setupStream() {
     _entriesSub?.cancel();
-    _entriesSub = ref
-        .read(entryRepositoryProvider)
-        .watchEntriesInRange(
-          tracker.id,
-          _earliestLoaded,
-          _latestMonth.add(const Duration(days: 31)),
-        )
-        .listen((data) {
-          _entries = data;
-          _updateState();
-        });
+    ref.read(entryRepositoryProvider.future).then((entryRepo) {
+      _entriesSub = entryRepo
+          .watchEntriesInRange(
+            tracker.id,
+            _earliestLoaded,
+            _latestMonth.add(const Duration(days: 31)),
+          )
+          .listen((data) {
+            _entries = data;
+            _updateState();
+          });
+    });
   }
 
   void _updateState() {
@@ -283,9 +284,8 @@ class TrackerCalendarNotifier extends ChangeNotifier {
       1,
     );
 
-    final older = await ref
-        .read(entryRepositoryProvider)
-        .fetchEntriesInRange(
+    final entryRepo = await ref.read(entryRepositoryProvider.future);
+    final older = await entryRepo.fetchEntriesInRange(
           tracker.id,
           newStart,
           _earliestLoaded.add(const Duration(days: 1)),
@@ -313,8 +313,14 @@ class TrackerCalendarNotifier extends ChangeNotifier {
     );
 
     if (index != -1) {
-      _entries[index] = _entries[index].copyWith(
+      final old = _entries[index];
+      _entries[index] = Entry(
+        id: old.id,
+        tracker: old.tracker,
+        date: old.date,
         quantity: amount,
+        comment: old.comment,
+        createdAt: old.createdAt,
         updatedAt: now,
       );
     } else {
@@ -333,8 +339,7 @@ class TrackerCalendarNotifier extends ChangeNotifier {
     _updateState();
     // ------------------------------------
 
-    await ref
-        .read(entryRepositoryProvider)
-        .saveEntry(tracker.id, normalized, amount);
+    final entryRepo = await ref.read(entryRepositoryProvider.future);
+    await entryRepo.saveEntry(tracker.id, normalized, amount);
   }
 }

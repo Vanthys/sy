@@ -32,7 +32,6 @@ class _SyAppState extends State<SyApp> {
 
   Future<void> _loadThemes() async {
     try {
-      // Load themes in parallel
       final themes = await Future.wait([
         _loadTheme('assets/light_theme.json'),
         _loadTheme('assets/dark_theme.json'),
@@ -55,9 +54,6 @@ class _SyAppState extends State<SyApp> {
 
   Future<ThemeData> _loadTheme(String path) async {
     final themeStr = await rootBundle.loadString(path);
-    // Decoding large JSON can be heavy, but rootBundle.loadString is already async.
-    // We decode in a background isolate for maximum smoothness if needed,
-    // but simple async is a good start.
     final themeJson = jsonDecode(themeStr);
     final base = ThemeDecoder.decodeThemeData(themeJson)!;
     return base.copyWith(

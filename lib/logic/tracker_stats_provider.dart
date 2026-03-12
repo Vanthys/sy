@@ -27,10 +27,10 @@ class TrackerStats {
 final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
   ref,
   tracker,
-) {
-  final entryRepo = ref.watch(entryRepositoryProvider);
+) async* {
+  final entryRepo = await ref.watch(entryRepositoryProvider.future);
 
-  return entryRepo.watchEntries(tracker.id).map((entries) {
+  yield* entryRepo.watchEntries(tracker.id).map((entries) {
     final meaningfulEntries = entries
         .where((e) => e.quantity.round() > 0)
         .toList();

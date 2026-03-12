@@ -1,82 +1,114 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:isar_community/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:drift/drift.dart';
+
 import '/data/database.dart';
+import '/data/schemas/tracker_schema.dart';
+import '/data/schemas/entry_schema.dart';
+import '/data/tracker_config.dart';
 
 class EntryRepository {
-  final AppDatabase db;
+  final Isar _isar;
 
-  EntryRepository(this.db);
+  EntryRepository(this._isar);
+
+  // shorthand collections
+  IsarCollection<IsarEntry> get _entries => _isar.collection<IsarEntry>();
+  IsarCollection<IsarTracker> get _trackers => _isar.collection<IsarTracker>();
+
+  // ------------------------------------------------------------------
+  // Helpers: convert [IsarEntry] ↔ app [Entry] data class
+  // ------------------------------------------------------------------
+
+  Entry _toEntry(IsarEntry e) {
+    return Entry(
+      id: e.id!,
+      tracker: e.trackerId,
+      date: e.date,
+      quantity: e.quantity,
+      comment: e.comment,
+      createdAt: e.createdAt,
+      updatedAt: e.updatedAt,
+    );
+  }
+
+  Tracker _isarTrackerToTracker(IsarTracker t) {
+    return Tracker(
+      id: t.uuid,
+      title: t.title,
+      description: t.description,
+      streakType: StreakType.values[t.streakTypeIndex],
+      privacyLevel: PrivacyLevel.values[t.privacyLevelIndex],
+      config: TrackerConfig.fromJson(jsonDecode(t.configJson)),
+      currentStreak: t.currentStreak,
+      longestStreak: t.longestStreak,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // Basic CRUD
+  // ------------------------------------------------------------------
 
   Future<List<Entry>> loadEntries(String trackerId) async {
-    return (db.select(db.entries)
-          ..where((e) => e.tracker.equals(trackerId))
-          ..orderBy([(e) => OrderingTerm.desc(e.date)]))
-        .get();
+    final rows = await _entries
+        .filter()
+        .trackerIdEqualTo(trackerId)
+        .sortByDateDesc()
+        .findAll();
+    return rows.map(_toEntry).toList();
   }
 
   Future<void> saveEntry(String trackerId, DateTime date, double amount) async {
-    // Normalize: strip time part
     final normalized = DateTime(date.year, date.month, date.day);
 
-    // Try to find existing record for that date
-    final existing =
-        await (db.select(db.entries)
-              ..where((e) => e.tracker.equals(trackerId))
-              ..where((e) => e.date.equals(normalized)))
-            .getSingleOrNull();
+    final existing = await _entries
+        .filter()
+        .trackerIdEqualTo(trackerId)
+        .and()
+        .dateEqualTo(normalized)
+        .findFirst();
 
-    if (amount > 0) {
-      if (existing != null) {
-        await (db.update(
-          db.entries,
-        )..where((e) => e.id.equals(existing.id))).write(
-          EntriesCompanion(
-            quantity: Value(amount),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
-      } else {
-        await db
-            .into(db.entries)
-            .insert(
-              EntriesCompanion(
-                tracker: Value(trackerId),
-                date: Value(normalized),
-                quantity: Value(amount),
-                createdAt: Value(DateTime.now()),
-                updatedAt: Value(DateTime.now()),
-              ),
-            );
+    await _isar.writeTxn(() async {
+      if (amount > 0) {
+        if (existing != null) {
+          existing.quantity = amount;
+          existing.updatedAt = DateTime.now();
+          await _entries.put(existing);
+        } else {
+          final entry = IsarEntry()
+            ..trackerId = trackerId
+            ..date = normalized
+            ..quantity = amount
+            ..createdAt = DateTime.now()
+            ..updatedAt = DateTime.now();
+          await _entries.put(entry);
+        }
+      } else if (existing != null) {
+        await _entries.delete(existing.id!);
       }
-    } else if (existing != null) {
-      await (db.delete(
-        db.entries,
-      )..where((e) => e.id.equals(existing.id))).go();
-    }
+    });
 
-    // 🟢 NEW: Update streak stats after any change
     await updateTrackerStreaks(trackerId);
   }
 
   Stream<List<Entry>> watchEntries(String trackerId) {
-    return (db.select(db.entries)
-          ..where((e) => e.tracker.equals(trackerId))
-          ..orderBy([(e) => OrderingTerm.desc(e.date)]))
-        .watch();
+    return _entries
+        .filter()
+        .trackerIdEqualTo(trackerId)
+        .sortByDateDesc()
+        .watch(fireImmediately: true)
+        .map((list) => list.map(_toEntry).toList());
   }
 
   Future<void> deleteEntry(int id) async {
-    // 🟡 Get trackerId before deleting
-    final entry = await (db.select(
-      db.entries,
-    )..where((e) => e.id.equals(id))).getSingleOrNull();
-    if (entry == null) return;
+    final row = await _entries.get(id);
+    if (row == null) return;
 
-    await (db.delete(db.entries)..where((e) => e.id.equals(id))).go();
-
-    // 🟢 Update streaks after deletion
-    await updateTrackerStreaks(entry.tracker);
+    await _isar.writeTxn(() => _entries.delete(id));
+    await updateTrackerStreaks(row.trackerId);
   }
 
   Stream<List<Entry>> watchEntriesInRange(
@@ -84,13 +116,15 @@ class EntryRepository {
     DateTime from,
     DateTime to,
   ) {
-    final toInclusive = to.add(const Duration(days: 1));
-
-    final query = (db.select(db.entries)
-      ..where((e) => e.tracker.equals(trackerId))
-      ..where((e) => e.date.isBetweenValues(from, toInclusive))
-      ..orderBy([(e) => OrderingTerm.desc(e.date)]));
-    return query.watch();
+    final toInclusive = DateTime(to.year, to.month, to.day + 1);
+    return _entries
+        .filter()
+        .trackerIdEqualTo(trackerId)
+        .and()
+        .dateBetween(from, toInclusive)
+        .sortByDateDesc()
+        .watch(fireImmediately: true)
+        .map((list) => list.map(_toEntry).toList());
   }
 
   Future<List<Entry>> fetchEntriesInRange(
@@ -98,95 +132,81 @@ class EntryRepository {
     DateTime from,
     DateTime to,
   ) async {
-    final toInclusive = to.add(const Duration(days: 1));
-    return (db.select(db.entries)
-          ..where((e) => e.tracker.equals(trackerId))
-          ..where((e) => e.date.isBetweenValues(from, toInclusive))
-          ..orderBy([(e) => OrderingTerm.desc(e.date)]))
-        .get();
+    final toInclusive = DateTime(to.year, to.month, to.day + 1);
+    final rows = await _entries
+        .filter()
+        .trackerIdEqualTo(trackerId)
+        .and()
+        .dateBetween(from, toInclusive)
+        .sortByDateDesc()
+        .findAll();
+    return rows.map(_toEntry).toList();
   }
 
-  // ------------------------------------------------------------
-  // 🔥 NEW — Streak Recalculation & Tracker Update
-  // ------------------------------------------------------------
-  // ------------------------------------------------------------
-  // 🔥 NEW — Streak Recalculation & Tracker Update
-  // ------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // Streak Recalculation
+  // ------------------------------------------------------------------
+
+  Future<void> updateTrackerStreaks(String trackerId) async {
+    final trackerRow = await _trackers
+        .filter()
+        .uuidEqualTo(trackerId)
+        .findFirst();
+    if (trackerRow == null) return;
+
+    final tracker = _isarTrackerToTracker(trackerRow);
+    final entries = await loadEntries(trackerId);
+    final (current, longest) = _computeStreaks(tracker, entries);
+
+    trackerRow.currentStreak = current;
+    trackerRow.longestStreak = longest;
+    trackerRow.updatedAt = DateTime.now();
+    await _isar.writeTxn(() => _trackers.put(trackerRow));
+  }
+
   Future<void> refreshAllStreaks({bool force = false}) async {
     if (!force) {
       final prefs = await SharedPreferences.getInstance();
       final lastRefresh = prefs.getString('last_streak_refresh_date');
       final todayStr = DateTime.now().toIso8601String().split('T').first;
-
-      if (lastRefresh == todayStr) {
-        // Already refreshed today, skip unless forced
-        return;
-      }
+      if (lastRefresh == todayStr) return;
     }
 
-    final trackers = await db.select(db.trackers).get();
+    final trackerRows = await _trackers.where().findAll();
+    final allEntryRows = await _entries.where().findAll();
 
-    // Fetch all entries for all trackers in one go to minimize DB calls
-    final allEntries = await db.select(db.entries).get();
-
-    // Group entries by trackerId for the isolate
     final entryGroups = <String, List<Entry>>{};
-    for (final e in allEntries) {
-      entryGroups.putIfAbsent(e.tracker, () => []).add(e);
+    for (final e in allEntryRows) {
+      entryGroups.putIfAbsent(e.trackerId, () => []).add(_toEntry(e));
     }
 
-    // Run heavy calculations in background isolate
+    final trackers = trackerRows.map(_isarTrackerToTracker).toList();
+
     final updates = await compute(
       _recalculateStreaksTask,
       _StreakBatchPayload(trackers: trackers, entryGroups: entryGroups),
     );
 
-    // Batch update the DB with results
-    await db.batch((batch) {
+    await _isar.writeTxn(() async {
       for (final update in updates) {
-        batch.update(
-          db.trackers,
-          TrackersCompanion(
-            currentStreak: Value(update.current),
-            longestStreak: Value(update.longest),
-            updatedAt: Value(DateTime.now()),
-          ),
-          where: (t) => t.id.equals(update.id),
-        );
+        final row = await _trackers.filter().uuidEqualTo(update.id).findFirst();
+        if (row == null) continue;
+        row.currentStreak = update.current;
+        row.longestStreak = update.longest;
+        row.updatedAt = DateTime.now();
+        await _trackers.put(row);
       }
     });
 
-    // Save the refresh date
     final prefs = await SharedPreferences.getInstance();
     final todayStr = DateTime.now().toIso8601String().split('T').first;
     await prefs.setString('last_streak_refresh_date', todayStr);
   }
-
-  // ------------------------------------------------------------
-  // 🔥 Streak Recalculation & Tracker Update
-  // ------------------------------------------------------------
-  Future<void> updateTrackerStreaks(String trackerId) async {
-    final tracker = await (db.select(
-      db.trackers,
-    )..where((t) => t.id.equals(trackerId))).getSingleOrNull();
-    if (tracker == null) return;
-
-    final entries = await loadEntries(trackerId);
-    final (current, longest) = _computeStreaks(tracker, entries);
-
-    await (db.update(db.trackers)..where((t) => t.id.equals(trackerId))).write(
-      TrackersCompanion(
-        currentStreak: Value(current),
-        longestStreak: Value(longest),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
 }
 
-// ------------------------------------------------------------
-// 🏗️ Isolate Helpers for Streak Recalculation
-// ------------------------------------------------------------
+// ------------------------------------------------------------------
+// Isolate helpers — streak logic unchanged from the Drift version
+// ------------------------------------------------------------------
 
 class _StreakBatchPayload {
   final List<Tracker> trackers;
@@ -207,16 +227,13 @@ class _StreakUpdate {
   });
 }
 
-/// Top-level function for background isolate execution
 List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
   final results = <_StreakUpdate>[];
-
   for (final t in payload.trackers) {
     final entries = payload.entryGroups[t.id] ?? [];
     final (current, longest) = _computeStreaks(t, entries);
     results.add(_StreakUpdate(id: t.id, current: current, longest: longest));
   }
-
   return results;
 }
 
@@ -240,16 +257,10 @@ List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
       .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
       .toSet();
 
-  // --------------------------------------------------------
-  // Determine Tracking Origin
-  // --------------------------------------------------------
-  // We look for the earliest entry ever logged to allow historical back-logging
   final sortedDays = entryDays.toList()..sort();
   final earliestEntry = sortedDays.isEmpty
       ? createdAtMidnight
       : sortedDays.first;
-
-  // The official "Tracking Start" is whichever came first: creation or first entry
   final trackingStartDay = earliestEntry.isBefore(createdAtMidnight)
       ? earliestEntry
       : createdAtMidnight;
@@ -262,12 +273,9 @@ List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
         : (daysSinceStart, daysSinceStart);
   }
 
-  // --------------------------------------------------------
-  // Compute Longest Streak
-  // --------------------------------------------------------
+  // Longest streak
   int longest = 0;
   int streak = 0;
-
   for (
     DateTime d = trackingStartDay;
     !d.isAfter(todayMidnight);
@@ -275,7 +283,6 @@ List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
   ) {
     final hasEntry = entryDays.contains(d);
     final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
-
     if (goodDay) {
       streak++;
       if (streak > longest) longest = streak;
@@ -284,13 +291,10 @@ List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
     }
   }
 
-  // --------------------------------------------------------
-  // Compute Current Streak (ending today)
-  // --------------------------------------------------------
+  // Current streak (ending today), DST-safe
   int current = 0;
   DateTime curDay = todayMidnight;
 
-  // For continued: if today has no entry, check yesterday to keep streak alive
   if (type == StreakType.continued && !entryDays.contains(curDay)) {
     curDay = DateTime(curDay.year, curDay.month, curDay.day - 1);
   }
@@ -298,7 +302,6 @@ List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
   while (!curDay.isBefore(trackingStartDay)) {
     final hasEntry = entryDays.contains(curDay);
     final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
-
     if (!goodDay) break;
     current++;
     curDay = DateTime(curDay.year, curDay.month, curDay.day - 1);

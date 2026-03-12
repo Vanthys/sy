@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
 import '../data/database.dart';
@@ -50,14 +48,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _exportDatabase(BuildContext context) async {
     try {
-      final dir = await getApplicationSupportDirectory();
-      final dbPath = p.join(dir.path, AppDatabase.dbName);
+      final isar = await ref.read(isarProvider.future);
+      final dbPath = isar.path;
+      if (dbPath == null) throw Exception('Isar path is null');
       final file = File(dbPath);
 
       if (await file.exists()) {
         final box = context.findRenderObject() as RenderBox?;
         await Share.shareXFiles(
-          [XFile(dbPath)],
+          [XFile(dbPath, mimeType: 'application/octet-stream')],
           text: 'My Streak Tracker Backup',
           sharePositionOrigin: box != null
               ? box.localToGlobal(Offset.zero) & box.size
@@ -195,7 +194,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
-    final repo = ref.read(trackerRepositoryProvider);
+    final repo = await ref.read(trackerRepositoryProvider.future);
 
     if (isSecret) {
       if (oldPin != null) {
