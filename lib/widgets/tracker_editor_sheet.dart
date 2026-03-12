@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import '/data/database.dart';
 import '/data/tracker_repository.dart';
 import '/data/tracker_config.dart';
@@ -27,14 +28,15 @@ class TrackerEditorSheet extends StatefulWidget {
 class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
+  late final TextEditingController _intensityGoalController;
   late StreakType _streakType;
   late PrivacyLevel _privacyLevel;
   late TrackerConfig _config;
   late List<TextEditingController> _optionControllers;
+  late List<String> _optionColors;
 
   String? _titleError;
   bool _isSubmitting = false;
-  bool _showAdvanced = false;
   late final TrackerRepository _repo;
 
   @override
@@ -60,16 +62,26 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
           streakColors: ['#FFC107', '#FF9800'],
         );
 
+    _intensityGoalController = TextEditingController(
+      text: _config.intensityGoal?.toString() ?? '',
+    );
+
     // Initialize controllers from config
     _optionControllers = (_config.options ?? ['Option 1', 'Option 2'])
         .map((opt) => TextEditingController(text: opt))
         .toList();
+
+    _optionColors = List.from(_config.optionColors ?? ['#FF5252', '#4CAF50']);
+    while (_optionColors.length < _optionControllers.length) {
+      _optionColors.add('#2196F3');
+    }
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _intensityGoalController.dispose();
     for (final c in _optionControllers) {
       c.dispose();
     }
@@ -85,6 +97,8 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
 
     setState(() => _isSubmitting = true);
 
+    final parsedGoal = double.tryParse(_intensityGoalController.text.trim());
+
     // Update config with latest UI values
     final updatedConfig = TrackerConfig(
       inputType: _config.inputType,
@@ -99,6 +113,10 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                 .map((c) => c.text.trim())
                 .where((t) => t.isNotEmpty)
                 .toList()
+          : null,
+      intensityGoal: _config.inputType == InputType.number ? parsedGoal : null,
+      optionColors: _config.inputType == InputType.choice
+          ? _optionColors.sublist(0, _optionControllers.length)
           : null,
     );
 
@@ -134,232 +152,329 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
     }
   }
 
+  Color _parseHex(String hex) {
+    final buffer = StringBuffer();
+    if (hex.length == 6 || hex.length == 7) buffer.write('ff');
+    buffer.write(hex.replaceFirst('#', ''));
+    try {
+      return Color(int.parse(buffer.toString(), radix: 16));
+    } catch (_) {
+      return Colors.blue;
+    }
+  }
+
+  String _toHex(Color color) {
+    return '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}';
+  }
+
+  void _pickOptionColor(int index) {
+    Color currentColor = _parseHex(_optionColors[index]);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Pick Option Color'),
+          content: SingleChildScrollView(
+            child: ColorPicker(
+              pickerColor: currentColor,
+              onColorChanged: (Color color) {
+                currentColor = color;
+              },
+              pickerAreaHeightPercent: 0.8,
+              enableAlpha: false,
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            FilledButton(
+              child: const Text('Select'),
+              onPressed: () {
+                setState(() {
+                  _optionColors[index] = _toHex(currentColor);
+                });
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
 
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
-          left: 24,
-          right: 24,
+          left: 20,
+          right: 20,
           top: 16,
           bottom: MediaQuery.of(context).viewInsets.bottom + 16,
         ),
         child: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 5,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: colorScheme.outline.withAlpha(50),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
               Text(
                 widget.isEditing ? 'Edit Tracker' : 'New Tracker',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
 
-              // --- BASIC SETTINGS ---
-              TextField(
-                controller: _titleController,
-                decoration: InputDecoration(
-                  labelText: 'Title',
-                  errorText: _titleError,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              TextField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 12),
-
-              DropdownButtonFormField<StreakType>(
-                value: _streakType,
-                decoration: const InputDecoration(labelText: 'Streak type'),
-                onChanged: (value) {
-                  if (value != null) setState(() => _streakType = value);
-                },
-                items: const [
-                  DropdownMenuItem(
-                    value: StreakType.continued,
-                    child: Text('Continued'),
+              // Basic Info Card
+              _buildSectionCard(
+                context,
+                title: 'Basic Details',
+                children: [
+                  TextField(
+                    controller: _titleController,
+                    decoration: InputDecoration(
+                      labelText: 'Tracker Name',
+                      errorText: _titleError,
+                      border: const OutlineInputBorder(),
+                    ),
                   ),
-                  DropdownMenuItem(
-                    value: StreakType.abstinence,
-                    child: Text('Abstinence'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (Optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 2,
                   ),
                 ],
               ),
               const SizedBox(height: 16),
 
-              DropdownButtonFormField<InputType>(
-                value: _config.inputType,
-                decoration: const InputDecoration(labelText: 'Input Type'),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      _config = TrackerConfig(
-                        inputType: value,
-                        maxValue: _config.maxValue,
-                        unit: _config.unit,
-                        intensityColors: _config.intensityColors,
-                        streakColors: _config.streakColors,
-                        options: _config.options,
-                      );
-                    });
-                  }
-                },
-                items: const [
-                  DropdownMenuItem(
-                    value: InputType.number,
-                    child: Text('Numeric Value'),
+              // Behavior Card
+              _buildSectionCard(
+                context,
+                title: 'Tracking Behavior',
+                children: [
+                  const Text('Streak Type'),
+                  const SizedBox(height: 8),
+                  SegmentedButton<StreakType>(
+                    segments: const [
+                      ButtonSegment(
+                        value: StreakType.continued,
+                        label: Text('Continued'),
+                        icon: Icon(Icons.trending_up, size: 18),
+                      ),
+                      ButtonSegment(
+                        value: StreakType.abstinence,
+                        label: Text('Abstinence'),
+                        icon: Icon(Icons.do_not_disturb_alt, size: 18),
+                      ),
+                    ],
+                    selected: {_streakType},
+                    onSelectionChanged: (newSel) =>
+                        setState(() => _streakType = newSel.first),
+                    showSelectedIcon: false,
+                    style: SegmentedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
                   ),
-                  DropdownMenuItem(
-                    value: InputType.toggle,
-                    child: Text('Binary (Yes/No)'),
+                  const SizedBox(height: 20),
+                  const Text('Input Format'),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<InputType>(
+                    initialValue: _config.inputType,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _config = TrackerConfig(
+                            inputType: value,
+                            maxValue: _config.maxValue,
+                            unit: _config.unit,
+                            intensityColors: _config.intensityColors,
+                            streakColors: _config.streakColors,
+                            options: _config.options,
+                            intensityGoal: _config.intensityGoal,
+                            optionColors: _config.optionColors,
+                          );
+                        });
+                      }
+                    },
+                    items: const [
+                      DropdownMenuItem(
+                        value: InputType.number,
+                        child: Text('Numeric Value'),
+                      ),
+                      DropdownMenuItem(
+                        value: InputType.toggle,
+                        child: Text('Checkbox (Yes/No)'),
+                      ),
+                      DropdownMenuItem(
+                        value: InputType.choice,
+                        child: Text('Multiple Choice'),
+                      ),
+                    ],
                   ),
-                  DropdownMenuItem(
-                    value: InputType.choice,
-                    child: Text('Multiple Choice'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
 
-              if (_config.inputType == InputType.choice) ...[
-                Text('Options', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
-                ...List.generate(_optionControllers.length, (index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _optionControllers[index],
-                            decoration: InputDecoration(
-                              labelText: 'Option ${index + 1}',
-                              isDense: true,
+                  if (_config.inputType == InputType.number) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _intensityGoalController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Intensity Goal',
+                        hintText: 'e.g. 10 (Max intensity color at this value)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+
+                  if (_config.inputType == InputType.choice) ...[
+                    const SizedBox(height: 16),
+                    const Text('Choices'),
+                    const SizedBox(height: 8),
+                    ...List.generate(_optionControllers.length, (index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () => _pickOptionColor(index),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                margin: const EdgeInsets.only(right: 12),
+                                decoration: BoxDecoration(
+                                  color: _parseHex(_optionColors[index]),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: cs.outlineVariant),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
-                          onPressed: _optionControllers.length > 2
-                              ? () {
+                            Expanded(
+                              child: TextField(
+                                controller: _optionControllers[index],
+                                decoration: InputDecoration(
+                                  labelText: 'Option ${index + 1}',
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            if (_optionControllers.length > 2)
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline),
+                                color: cs.error,
+                                onPressed: () {
                                   setState(() {
                                     _optionControllers
                                         .removeAt(index)
                                         .dispose();
+                                    _optionColors.removeAt(index);
                                   });
-                                }
-                              : null,
+                                },
+                              ),
+                          ],
                         ),
-                      ],
+                      );
+                    }),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _optionControllers.add(TextEditingController());
+                          _optionColors.add('#2196F3');
+                        });
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Choice'),
                     ),
-                  );
-                }),
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _optionControllers.add(TextEditingController());
-                    });
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Option'),
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              if (widget.vaultState.isVaultUnlocked) ...[
-                Text(
-                  'Privacy',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                SegmentedButton<PrivacyLevel>(
-                  segments: [
-                    const ButtonSegment(
-                      value: PrivacyLevel.standard,
-                      label: Text('Public'),
-                      icon: Icon(Icons.public),
-                    ),
-                    if (widget.vaultState.unlockedLevel.index >=
-                        PrivacyLevel.vault.index)
-                      const ButtonSegment(
-                        value: PrivacyLevel.vault,
-                        label: Text('Vault'),
-                        icon: Icon(Icons.lock_outline),
-                      ),
-                    if (widget.vaultState.unlockedLevel.index >=
-                        PrivacyLevel.secret.index)
-                      const ButtonSegment(
-                        value: PrivacyLevel.secret,
-                        label: Text('Secret'),
-                        icon: Icon(Icons.visibility_off),
-                      ),
                   ],
-                  selected: {_privacyLevel},
-                  onSelectionChanged: (newSelection) {
-                    setState(() => _privacyLevel = newSelection.first);
-                  },
-                ),
-                if (_privacyLevel != PrivacyLevel.standard)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          size: 16,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Data will be encrypted with your Vault PIN. Make sure a PIN is set in Settings.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 8),
-              ],
-              TextButton.icon(
-                onPressed: () => setState(() => _showAdvanced = !_showAdvanced),
-                icon: Icon(
-                  _showAdvanced ? Icons.expand_less : Icons.expand_more,
-                ),
-                label: Text(
-                  _showAdvanced ? 'Hide advanced settings' : 'More options',
-                ),
+                ],
               ),
 
-              AnimatedCrossFade(
-                firstChild: const SizedBox.shrink(),
-                secondChild: Column(
+              if (widget.vaultState.isVaultUnlocked) ...[
+                const SizedBox(height: 16),
+                _buildSectionCard(
+                  context,
+                  title: 'Privacy Level',
                   children: [
-                    const SizedBox(height: 8),
+                    SegmentedButton<PrivacyLevel>(
+                      segments: [
+                        const ButtonSegment(
+                          value: PrivacyLevel.standard,
+                          label: Text('Public'),
+                          icon: Icon(Icons.public, size: 18),
+                        ),
+                        if (widget.vaultState.unlockedLevel.index >=
+                            PrivacyLevel.vault.index)
+                          const ButtonSegment(
+                            value: PrivacyLevel.vault,
+                            label: Text('Vault'),
+                            icon: Icon(Icons.lock_outline, size: 18),
+                          ),
+                        if (widget.vaultState.unlockedLevel.index >=
+                            PrivacyLevel.secret.index)
+                          const ButtonSegment(
+                            value: PrivacyLevel.secret,
+                            label: Text('Secret'),
+                            icon: Icon(Icons.visibility_off, size: 18),
+                          ),
+                      ],
+                      selected: {_privacyLevel},
+                      showSelectedIcon: false,
+                      style: SegmentedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      onSelectionChanged: (s) =>
+                          setState(() => _privacyLevel = s.first),
+                    ),
+                    if (_privacyLevel != PrivacyLevel.standard)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12.0),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              size: 18,
+                              color: cs.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Data will be encrypted with your Vault PIN. Make sure a PIN is set in Settings.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: cs.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+
+              if (_config.inputType != InputType.choice) ...[
+                const SizedBox(height: 16),
+                _buildSectionCard(
+                  context,
+                  title: 'Visual Theme',
+                  children: [
                     GradientPicker(
                       label: 'Day Intensity Gradient',
                       currentColors: _config.intensityColors,
@@ -371,6 +486,9 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                             unit: _config.unit,
                             intensityColors: newColors,
                             streakColors: _config.streakColors,
+                            options: _config.options,
+                            intensityGoal: _config.intensityGoal,
+                            optionColors: _config.optionColors,
                           );
                         });
                       },
@@ -387,51 +505,89 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
                             unit: _config.unit,
                             intensityColors: _config.intensityColors,
                             streakColors: newColors,
+                            options: _config.options,
+                            intensityGoal: _config.intensityGoal,
+                            optionColors: _config.optionColors,
                           );
                         });
                       },
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'More customization options coming soon…',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.outline,
-                      ),
-                    ),
                   ],
                 ),
-                crossFadeState: _showAdvanced
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                duration: const Duration(milliseconds: 250),
-              ),
+              ],
               const SizedBox(height: 24),
 
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                       onPressed: _isSubmitting ? null : _saveTracker,
                       child: _isSubmitting
                           ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
-                          : Text(widget.isEditing ? 'Save' : 'Create'),
+                          : Text(
+                              widget.isEditing
+                                  ? 'Save Changes'
+                                  : 'Create Tracker',
+                            ),
                     ),
                   ),
                 ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard(
+    BuildContext context, {
+    required String title,
+    required List<Widget> children,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      color: cs.surfaceContainerHighest.withAlpha(100),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: cs.outlineVariant.withAlpha(100)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: cs.primary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
         ),
       ),
     );

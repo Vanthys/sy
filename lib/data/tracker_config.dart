@@ -9,6 +9,8 @@ class TrackerConfig {
   final List<String>? intensityColors;
   final List<String>? streakColors;
   final List<String>? options;
+  final double? intensityGoal;
+  final List<String>? optionColors;
 
   const TrackerConfig({
     this.maxValue,
@@ -17,6 +19,8 @@ class TrackerConfig {
     this.intensityColors,
     this.streakColors,
     this.options,
+    this.intensityGoal,
+    this.optionColors,
   });
 
   factory TrackerConfig.fromJson(Map<String, dynamic> json) {
@@ -56,6 +60,13 @@ class TrackerConfig {
           .toList();
     }
 
+    List<String>? parsedOptionColors;
+    if (json['optionColors'] != null) {
+      parsedOptionColors = (json['optionColors'] as List)
+          .map((e) => e.toString())
+          .toList();
+    }
+
     return TrackerConfig(
       maxValue: (json['maxValue'] as num?)?.toDouble(),
       inputType: InputType.values.firstWhere(
@@ -66,6 +77,8 @@ class TrackerConfig {
       intensityColors: parsedIntensity,
       streakColors: parsedStreak,
       options: parsedOptions,
+      intensityGoal: (json['intensityGoal'] as num?)?.toDouble(),
+      optionColors: parsedOptionColors,
     );
   }
 
@@ -76,5 +89,7 @@ class TrackerConfig {
     'intensityColors': intensityColors,
     'streakColors': streakColors,
     'options': options,
+    'intensityGoal': intensityGoal,
+    'optionColors': optionColors,
   };
 }

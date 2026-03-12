@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '/data/database.dart';
 import '/logic/tracker_overview_provider.dart';
 import '/utils/color_utils.dart';
+import '/data/tracker_config.dart';
 
 class TrackerOverviewCard extends ConsumerWidget {
   const TrackerOverviewCard({
@@ -194,22 +195,40 @@ class TrackerOverviewCard extends ConsumerWidget {
 
   Widget _buildGrid(BuildContext context, List<double> data, Color accent) {
     final cs = Theme.of(context).colorScheme;
-    final maxVal = data.isEmpty ? 1 : data.reduce((a, b) => a > b ? a : b);
-    final normalized = data.map((v) => v / (maxVal == 0 ? 1 : maxVal)).toList();
+    final config = tracker.config;
+
+    final fallbackMax = data.isEmpty ? 1.0 : data.reduce((a, b) => a > b ? a : b);
+    final maxVal = config.intensityGoal ?? config.maxValue ?? fallbackMax;
 
     final cells = List<double>.generate(_gridRows * _gridCols, (i) {
       final index = data.length - 1 - i;
-      return index >= 0 && index < data.length ? normalized[index] : 0;
+      return index >= 0 && index < data.length ? data[index] : 0.0;
     });
 
     return Wrap(
       spacing: 4,
       runSpacing: 4,
       children: List.generate(cells.length, (i) {
-        final value = cells[i];
-        final color = value == 0
-            ? cs.outlineVariant
-            : accent.withValues(alpha: 0.30 + (value * 0.70));
+        final amount = cells[i];
+
+        Color color;
+
+        if (amount <= 0) {
+          color = cs.outlineVariant;
+        } else if (config.inputType == InputType.toggle) {
+          color = accent;
+        } else if (config.inputType == InputType.choice) {
+          final choiceIndex = (amount - 1).toInt();
+          color = ColorUtils.getColorForChoice(
+            choiceIndex,
+            optionColors: config.optionColors,
+            fallback: accent,
+          );
+        } else {
+          final ratio = (amount / (maxVal <= 0 ? 1.0 : maxVal)).clamp(0.0, 1.0);
+          color = accent.withValues(alpha: 0.30 + (ratio * 0.70));
+        }
+
         return Container(
           width: 12,
           height: 12,

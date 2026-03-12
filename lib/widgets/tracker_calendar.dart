@@ -80,6 +80,7 @@ class _TrackerCalendarState extends ConsumerState<TrackerCalendar> {
                   return DayBlock(
                     dayData: dayData,
                     unitAbbreviation: widget.tracker.config.unit,
+                    inputType: widget.tracker.config.inputType,
                     onTap: () async {
                       final result = await showTrackerValueBottomSheet(
                         context: context,
