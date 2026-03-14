@@ -33,7 +33,8 @@ class VaultState {
       unlockedLevel: unlockedLevel ?? this.unlockedLevel,
       activeKey: activeKey ?? this.activeKey,
       isBiometricsEnabled: isBiometricsEnabled ?? this.isBiometricsEnabled,
-      isScreenProtectionEnabled: isScreenProtectionEnabled ?? this.isScreenProtectionEnabled,
+      isScreenProtectionEnabled:
+          isScreenProtectionEnabled ?? this.isScreenProtectionEnabled,
     );
   }
 }
@@ -51,7 +52,8 @@ class VaultNotifier extends StateNotifier<VaultState> {
   // Secure Storage Keys
   static const _secureGeneralHashRawKey = 'vault_general_hash';
   static const _secureGeneralSaltRawKey = 'vault_general_salt';
-  static const _secureGeneralEncryptionKey = 'vault_general_enc_key'; // Used for biometrics
+  static const _secureGeneralEncryptionKey =
+      'vault_general_enc_key'; // Used for biometrics
 
   static const _secureSecretHashRawKey = 'vault_secret_hash';
   static const _secureSecretSaltRawKey = 'vault_secret_salt';
@@ -63,7 +65,7 @@ class VaultNotifier extends StateNotifier<VaultState> {
     final prefs = await SharedPreferences.getInstance();
     final bioEnabled = prefs.getBool(_biometricsEnabledKey) ?? false;
     final screenEnabled = prefs.getBool(_screenProtectionEnabledKey) ?? false;
-    
+
     state = state.copyWith(
       isBiometricsEnabled: bioEnabled,
       isScreenProtectionEnabled: screenEnabled,
@@ -78,7 +80,10 @@ class VaultNotifier extends StateNotifier<VaultState> {
     // 1. Try Secret Vault First
     if (await verifySecretPin(pin)) {
       final key = EncryptionUtils.deriveKeyFromPin(pin);
-      state = state.copyWith(unlockedLevel: PrivacyLevel.secret, activeKey: key);
+      state = state.copyWith(
+        unlockedLevel: PrivacyLevel.secret,
+        activeKey: key,
+      );
       _applyScreenProtectionIfNeeded();
       return true;
     }
@@ -100,7 +105,8 @@ class VaultNotifier extends StateNotifier<VaultState> {
 
     try {
       final canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
-      final canAuthenticate = canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
+      final canAuthenticate =
+          canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
 
       if (!canAuthenticate) return false;
 
@@ -112,11 +118,16 @@ class VaultNotifier extends StateNotifier<VaultState> {
 
       if (didAuthenticate) {
         // Retrieve the stored raw encryption key required to decrypt data (since we don't have the PIN)
-        final rawKeyBase64 = await _secureStorage.read(key: _secureGeneralEncryptionKey);
+        final rawKeyBase64 = await _secureStorage.read(
+          key: _secureGeneralEncryptionKey,
+        );
         if (rawKeyBase64 == null) return false;
 
         final key = enc.Key.fromBase64(rawKeyBase64);
-        state = state.copyWith(unlockedLevel: PrivacyLevel.vault, activeKey: key);
+        state = state.copyWith(
+          unlockedLevel: PrivacyLevel.vault,
+          activeKey: key,
+        );
         _applyScreenProtectionIfNeeded();
         return true;
       }
@@ -129,7 +140,10 @@ class VaultNotifier extends StateNotifier<VaultState> {
 
   /// Cleans the encryption key from memory and reverts to standard level
   void lockVault() async {
-    state = state.copyWith(unlockedLevel: PrivacyLevel.standard, activeKey: null);
+    state = state.copyWith(
+      unlockedLevel: PrivacyLevel.standard,
+      activeKey: null,
+    );
     try {
       await ScreenProtector.preventScreenshotOn();
       // We only want to prevent screenshots if they global setting says so.
@@ -165,16 +179,27 @@ class VaultNotifier extends StateNotifier<VaultState> {
 
   Future<void> setGeneralPin(String newPin) async {
     final saltBytes = EncryptionUtils.generateSalt();
-    final saltBase64 = enc.IV(Uint8List.fromList(saltBytes)).base64; // Convenient base64 wrapper
+    final saltBase64 = enc
+        .IV(Uint8List.fromList(saltBytes))
+        .base64; // Convenient base64 wrapper
     final hashBase64 = await EncryptionUtils.hashPinPbkdf2(newPin, saltBytes);
 
-    // For biometric unlock to work, we must store the derived AES encryption key securely 
+    // For biometric unlock to work, we must store the derived AES encryption key securely
     // because the user will not provide the PIN when unlocking via face/touch.
     final aesKey = EncryptionUtils.deriveKeyFromPin(newPin);
 
-    await _secureStorage.write(key: _secureGeneralHashRawKey, value: hashBase64);
-    await _secureStorage.write(key: _secureGeneralSaltRawKey, value: saltBase64);
-    await _secureStorage.write(key: _secureGeneralEncryptionKey, value: aesKey.base64);
+    await _secureStorage.write(
+      key: _secureGeneralHashRawKey,
+      value: hashBase64,
+    );
+    await _secureStorage.write(
+      key: _secureGeneralSaltRawKey,
+      value: saltBase64,
+    );
+    await _secureStorage.write(
+      key: _secureGeneralEncryptionKey,
+      value: aesKey.base64,
+    );
   }
 
   Future<void> setSecretPin(String newPin) async {
@@ -232,4 +257,3 @@ class VaultNotifier extends StateNotifier<VaultState> {
 final vaultProvider = StateNotifierProvider<VaultNotifier, VaultState>((ref) {
   return VaultNotifier();
 });
-

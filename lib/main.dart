@@ -45,7 +45,7 @@ class _SyAppState extends ConsumerState<SyApp> {
     _lifecycleListener = AppLifecycleListener(
       onPause: _lockVault,
       onHide: _lockVault,
-      onInactive: _lockVault,
+      //onInactive: _lockVault, // a bit extreme for security.
       onDetach: _lockVault,
     );
   }

@@ -38,7 +38,9 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
     ref.listen(vaultProvider, (previous, next) {
       final wasUnlocked = previous?.isVaultUnlocked ?? false;
       final isUnlocked = next.isVaultUnlocked;
-      if (wasUnlocked && !isUnlocked && widget.tracker.privacyLevel != PrivacyLevel.standard) {
+      if (wasUnlocked &&
+          !isUnlocked &&
+          widget.tracker.privacyLevel != PrivacyLevel.standard) {
         if (mounted) {
           Navigator.of(context).pop();
         }
