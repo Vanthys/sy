@@ -47,18 +47,23 @@ const IsarTrackerSchema = CollectionSchema(
       name: r'privacyLevelIndex',
       type: IsarType.long,
     ),
-    r'streakTypeIndex': PropertySchema(
+    r'sortOrder': PropertySchema(
       id: 6,
+      name: r'sortOrder',
+      type: IsarType.long,
+    ),
+    r'streakTypeIndex': PropertySchema(
+      id: 7,
       name: r'streakTypeIndex',
       type: IsarType.long,
     ),
-    r'title': PropertySchema(id: 7, name: r'title', type: IsarType.string),
+    r'title': PropertySchema(id: 8, name: r'title', type: IsarType.string),
     r'updatedAt': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
-    r'uuid': PropertySchema(id: 9, name: r'uuid', type: IsarType.string),
+    r'uuid': PropertySchema(id: 10, name: r'uuid', type: IsarType.string),
   },
 
   estimateSize: _isarTrackerEstimateSize,
@@ -77,6 +82,19 @@ const IsarTrackerSchema = CollectionSchema(
           name: r'uuid',
           type: IndexType.hash,
           caseSensitive: true,
+        ),
+      ],
+    ),
+    r'sortOrder': IndexSchema(
+      id: -1119549396205841918,
+      name: r'sortOrder',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'sortOrder',
+          type: IndexType.value,
+          caseSensitive: false,
         ),
       ],
     ),
@@ -120,10 +138,11 @@ void _isarTrackerSerialize(
   writer.writeString(offsets[3], object.description);
   writer.writeLong(offsets[4], object.longestStreak);
   writer.writeLong(offsets[5], object.privacyLevelIndex);
-  writer.writeLong(offsets[6], object.streakTypeIndex);
-  writer.writeString(offsets[7], object.title);
-  writer.writeDateTime(offsets[8], object.updatedAt);
-  writer.writeString(offsets[9], object.uuid);
+  writer.writeLong(offsets[6], object.sortOrder);
+  writer.writeLong(offsets[7], object.streakTypeIndex);
+  writer.writeString(offsets[8], object.title);
+  writer.writeDateTime(offsets[9], object.updatedAt);
+  writer.writeString(offsets[10], object.uuid);
 }
 
 IsarTracker _isarTrackerDeserialize(
@@ -140,10 +159,11 @@ IsarTracker _isarTrackerDeserialize(
   object.id = id;
   object.longestStreak = reader.readLong(offsets[4]);
   object.privacyLevelIndex = reader.readLong(offsets[5]);
-  object.streakTypeIndex = reader.readLong(offsets[6]);
-  object.title = reader.readString(offsets[7]);
-  object.updatedAt = reader.readDateTime(offsets[8]);
-  object.uuid = reader.readString(offsets[9]);
+  object.sortOrder = reader.readLong(offsets[6]);
+  object.streakTypeIndex = reader.readLong(offsets[7]);
+  object.title = reader.readString(offsets[8]);
+  object.updatedAt = reader.readDateTime(offsets[9]);
+  object.uuid = reader.readString(offsets[10]);
   return object;
 }
 
@@ -169,10 +189,12 @@ P _isarTrackerDeserializeProp<P>(
     case 6:
       return (reader.readLong(offset)) as P;
     case 7:
-      return (reader.readString(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 8:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 9:
+      return (reader.readDateTime(offset)) as P;
+    case 10:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -257,6 +279,14 @@ extension IsarTrackerQueryWhereSort
   QueryBuilder<IsarTracker, IsarTracker, QAfterWhere> anyId() {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(const IdWhereClause.any());
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterWhere> anySortOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        const IndexWhereClause.any(indexName: r'sortOrder'),
+      );
     });
   }
 }
@@ -384,6 +414,109 @@ extension IsarTrackerQueryWhere
               ),
             );
       }
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterWhereClause> sortOrderEqualTo(
+    int sortOrder,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'sortOrder', value: [sortOrder]),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterWhereClause> sortOrderNotEqualTo(
+    int sortOrder,
+  ) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sortOrder',
+                lower: [],
+                upper: [sortOrder],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sortOrder',
+                lower: [sortOrder],
+                includeLower: false,
+                upper: [],
+              ),
+            );
+      } else {
+        return query
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sortOrder',
+                lower: [sortOrder],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'sortOrder',
+                lower: [],
+                upper: [sortOrder],
+                includeUpper: false,
+              ),
+            );
+      }
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterWhereClause>
+  sortOrderGreaterThan(int sortOrder, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'sortOrder',
+          lower: [sortOrder],
+          includeLower: include,
+          upper: [],
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterWhereClause> sortOrderLessThan(
+    int sortOrder, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'sortOrder',
+          lower: [],
+          upper: [sortOrder],
+          includeUpper: include,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterWhereClause> sortOrderBetween(
+    int lowerSortOrder,
+    int upperSortOrder, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(
+        IndexWhereClause.between(
+          indexName: r'sortOrder',
+          lower: [lowerSortOrder],
+          includeLower: includeLower,
+          upper: [upperSortOrder],
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -986,6 +1119,61 @@ extension IsarTrackerQueryFilter
   }
 
   QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  sortOrderEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'sortOrder', value: value),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  sortOrderGreaterThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'sortOrder',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  sortOrderLessThan(int value, {bool include = false}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'sortOrder',
+          value: value,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  sortOrderBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'sortOrder',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
   streakTypeIndexEqualTo(int value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(
@@ -1475,6 +1663,18 @@ extension IsarTrackerQuerySortBy
     });
   }
 
+  QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> sortBySortOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sortOrder', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> sortBySortOrderDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sortOrder', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> sortByStreakTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'streakTypeIndex', Sort.asc);
@@ -1615,6 +1815,18 @@ extension IsarTrackerQuerySortThenBy
     });
   }
 
+  QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> thenBySortOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sortOrder', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> thenBySortOrderDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sortOrder', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> thenByStreakTypeIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'streakTypeIndex', Sort.asc);
@@ -1708,6 +1920,12 @@ extension IsarTrackerQueryWhereDistinct
     });
   }
 
+  QueryBuilder<IsarTracker, IsarTracker, QDistinct> distinctBySortOrder() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sortOrder');
+    });
+  }
+
   QueryBuilder<IsarTracker, IsarTracker, QDistinct>
   distinctByStreakTypeIndex() {
     return QueryBuilder.apply(this, (query) {
@@ -1779,6 +1997,12 @@ extension IsarTrackerQueryProperty
   QueryBuilder<IsarTracker, int, QQueryOperations> privacyLevelIndexProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'privacyLevelIndex');
+    });
+  }
+
+  QueryBuilder<IsarTracker, int, QQueryOperations> sortOrderProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sortOrder');
     });
   }
 

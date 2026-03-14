@@ -38,6 +38,7 @@ class Tracker {
   final int longestStreak;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final int sortOrder;
 
   const Tracker({
     required this.id,
@@ -50,6 +51,7 @@ class Tracker {
     this.longestStreak = 0,
     required this.createdAt,
     required this.updatedAt,
+    this.sortOrder = 0,
   });
 
   Tracker copyWith({
@@ -63,6 +65,7 @@ class Tracker {
     int? longestStreak,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? sortOrder,
   }) {
     return Tracker(
       id: id ?? this.id,
@@ -75,6 +78,7 @@ class Tracker {
       longestStreak: longestStreak ?? this.longestStreak,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 }

@@ -245,8 +245,45 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
               ],
             );
           } else {
-            listView = ListView.separated(
-              controller: _scrollController,
+            listView = ReorderableListView.builder(
+              scrollController: _scrollController,
+              buildDefaultDragHandles: false,
+              onReorder: (oldIndex, newIndex) async {
+                final isVaultUnlocked = ref.read(vaultProvider).isVaultUnlocked;
+                final mutableTrackers = trackers.toList();
+                
+                int adjustedOldPath = oldIndex;
+                int adjustedNewPath = newIndex;
+
+                if (isVaultUnlocked) {
+                  // Index 0 is the vault banner. Don't reorder it.
+                  if (oldIndex == 0) return;
+                  
+                  // Adjust to 0-based index for the actual trackers list
+                  adjustedOldPath = oldIndex - 1;
+                  adjustedNewPath = newIndex - 1;
+                  
+                  // If moving to the very top (where banner is), cap at index 0 of trackers
+                  if (adjustedNewPath < 0) adjustedNewPath = 0;
+                }
+
+                if (adjustedNewPath > adjustedOldPath) adjustedNewPath--;
+                if (adjustedOldPath == adjustedNewPath) return;
+
+                final item = mutableTrackers.removeAt(adjustedOldPath);
+                mutableTrackers.insert(adjustedNewPath, item);
+
+                final repo = await ref.read(trackerRepositoryProvider.future);
+                await repo.reorderTrackers(
+                  mutableTrackers.map((t) => t.id).toList(),
+                );
+              },
+              proxyDecorator: (widget, index, animation) {
+                return Material(
+                  color: Colors.transparent,
+                  child: widget,
+                );
+              },
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -256,12 +293,19 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                 right: 8,
                 bottom: 80,
               ),
-              separatorBuilder: (_, _) => const SizedBox(height: 0),
               itemCount: trackers.length + (vaultState.isVaultUnlocked ? 1 : 0),
               itemBuilder: (context, i) {
+                final key =
+                    vaultState.isVaultUnlocked && i == 0
+                        ? const ValueKey('vault_banner')
+                        : ValueKey(
+                          trackers[vaultState.isVaultUnlocked ? i - 1 : i].id,
+                        );
+
                 // If vault is unlocked, show a lock banner at the very top
                 if (vaultState.isVaultUnlocked && i == 0) {
                   return Padding(
+                    key: key,
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: Material(
                       color: Theme.of(context).colorScheme.primaryContainer,
@@ -305,131 +349,138 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                   );
                 }
 
-                // Adjust index if we added the banner
-                final trackerIndex = vaultState.isVaultUnlocked ? i - 1 : i;
-                final tracker = trackers[trackerIndex];
+              // Adjust index if we added the banner
+              final trackerIndex = vaultState.isVaultUnlocked ? i - 1 : i;
+              final tracker = trackers[trackerIndex];
 
-                return TrackerOverviewCard(
-                  tracker: tracker,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TrackerCalendarScreen(tracker: tracker),
-                      ),
-                    );
-                  },
-                  onEdit: () =>
-                      _openTrackerEditor(context, ref, existing: tracker),
-                  onDelete: () => _deleteTracker(context, ref, tracker),
-                );
-              },
+              return ReorderableDelayedDragStartListener(
+                key: key,
+                index: i,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 0),
+                  child: TrackerOverviewCard(
+                    tracker: tracker,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TrackerCalendarScreen(tracker: tracker),
+                        ),
+                      );
+                    },
+                    onEdit: () =>
+                        _openTrackerEditor(context, ref, existing: tracker),
+                    onDelete: () => _deleteTracker(context, ref, tracker),
+                  ),
+                ),
+              );
+            },
             );
           }
 
           return Stack(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    if (_showVaultHeader) {
+            children: [
+              GestureDetector(
+                onTap: () {
+                  if (_showVaultHeader) {
+                    setState(() => _showVaultHeader = false);
+                    _headerFocus.unfocus();
+                  }
+                },
+                child: listView,
+              ),
+
+              // Dimming Backdrop
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !_showVaultHeader,
+                  child: GestureDetector(
+                    onTap: () {
                       setState(() => _showVaultHeader = false);
                       _headerFocus.unfocus();
-                    }
-                  },
-                  child: listView,
-                ),
-
-                // Dimming Backdrop
-                Positioned.fill(
-                  child: IgnorePointer(
-                    ignoring: !_showVaultHeader,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _showVaultHeader = false);
-                        _headerFocus.unfocus();
-                      },
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 300),
-                        opacity: _showVaultHeader ? 1.0 : 0.0,
-                        child: Container(color: Colors.black54),
-                      ),
+                    },
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 300),
+                      opacity: _showVaultHeader ? 1.0 : 0.0,
+                      child: Container(color: Colors.black54),
                     ),
                   ),
                 ),
+              ),
 
-                // Animated Vault Header
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  top: _showVaultHeader ? 16 : -100,
-                  left: 16,
-                  right: 16,
-                  child: Material(
-                    elevation: 8,
-                    shadowColor: Colors.black26,
-                    borderRadius: BorderRadius.circular(100),
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerHighest,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.lock_outline, size: 20),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: _pinController,
-                              focusNode: _headerFocus,
-                              obscureText: true,
-                              readOnly: _isUnlocking,
-                              decoration: const InputDecoration(
-                                hintText: 'Passphrase',
-                                border: InputBorder.none,
-                                isDense: true,
-                              ),
-                              onSubmitted: _isUnlocking ? null : _submitVaultPin,
+              // Animated Vault Header
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                top: _showVaultHeader ? 16 : -100,
+                left: 16,
+                right: 16,
+                child: Material(
+                  elevation: 8,
+                  shadowColor: Colors.black26,
+                  borderRadius: BorderRadius.circular(100),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.lock_outline, size: 20),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: _pinController,
+                            focusNode: _headerFocus,
+                            obscureText: true,
+                            readOnly: _isUnlocking,
+                            decoration: const InputDecoration(
+                              hintText: 'Passphrase',
+                              border: InputBorder.none,
+                              isDense: true,
                             ),
+                            onSubmitted: _isUnlocking ? null : _submitVaultPin,
                           ),
-                          if (_isUnlocking)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 14.0),
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          else
-                            IconButton(
-                              icon: const Icon(Icons.arrow_forward),
-                              onPressed: () => _submitVaultPin(_pinController.text),
+                        ),
+                        if (_isUnlocking)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 14.0),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
-                          if (vaultState.isBiometricsEnabled && !_isUnlocking)
-                            IconButton(
-                              icon: const Icon(Icons.fingerprint, size: 20),
-                              onPressed: _unlockWithBiometrics,
-                            ),
-                          if (!_isUnlocking)
-                            IconButton(
-                              icon: const Icon(Icons.close, size: 20),
-                              onPressed: () {
-                                setState(() => _showVaultHeader = false);
-                                _headerFocus.unfocus();
-                              },
-                            ),
-                        ],
-                      ),
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(Icons.arrow_forward),
+                            onPressed: () => _submitVaultPin(_pinController.text),
+                          ),
+                        if (vaultState.isBiometricsEnabled && !_isUnlocking)
+                          IconButton(
+                            icon: const Icon(Icons.fingerprint, size: 20),
+                            onPressed: _unlockWithBiometrics,
+                          ),
+                        if (!_isUnlocking)
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: () {
+                              setState(() => _showVaultHeader = false);
+                              _headerFocus.unfocus();
+                            },
+                          ),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            );
-          },
-        ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

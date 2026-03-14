@@ -26,4 +26,7 @@ class IsarTracker {
 
   late DateTime createdAt;
   late DateTime updatedAt;
+
+  @Index()
+  late int sortOrder;
 }

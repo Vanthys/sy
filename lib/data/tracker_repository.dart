@@ -23,6 +23,7 @@ extension IsarTrackerConversion on IsarTracker {
       longestStreak: longestStreak,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      sortOrder: sortOrder,
     );
   }
 }
@@ -81,7 +82,7 @@ class TrackerRepository {
     final raw = await _trackers
         .filter()
         .privacyLevelIndexLessThan(vaultState.unlockedLevel.index + 1)
-        .sortByCreatedAtDesc()
+        .sortBySortOrder()
         .findAll();
     return raw.map((r) => _decryptTracker(r.toTracker())).toList();
   }
@@ -90,7 +91,7 @@ class TrackerRepository {
     return _trackers
         .filter()
         .privacyLevelIndexLessThan(vaultState.unlockedLevel.index + 1)
-        .sortByCreatedAtDesc()
+        .sortBySortOrder()
         .watch(fireImmediately: true)
         .map((list) => list.map((r) => _decryptTracker(r.toTracker())).toList());
   }
@@ -125,7 +126,8 @@ class TrackerRepository {
       ..currentStreak = 0
       ..longestStreak = 0
       ..createdAt = now
-      ..updatedAt = now;
+      ..updatedAt = now
+      ..sortOrder = await _trackers.count();
 
     await _isar.writeTxn(() => _trackers.put(row));
   }
@@ -173,6 +175,37 @@ class TrackerRepository {
     row.longestStreak = longest;
     row.updatedAt = DateTime.now();
     await _isar.writeTxn(() => _trackers.put(row));
+  }
+
+  Future<void> reorderTrackers(List<String> visibleIds) async {
+    await _isar.writeTxn(() async {
+      // 1. Fetch ALL trackers sorted by current sortOrder
+      final all = await _trackers.where().sortBySortOrder().findAll();
+
+      // 2. Identify the indices (slots) currently occupied by the items in visibleIds
+      final slots = <int>[];
+      final visibleItemsMap = <String, IsarTracker>{};
+
+      for (int i = 0; i < all.length; i++) {
+        if (visibleIds.contains(all[i].uuid)) {
+          slots.add(i);
+          visibleItemsMap[all[i].uuid] = all[i];
+        }
+      }
+
+      // 3. Update the trackers in their new order, but using the original slots
+      // visibleIds is already in the target order
+      for (int i = 0; i < visibleIds.length; i++) {
+        if (i >= slots.length) break; // Should not happen
+
+        final trackerId = visibleIds[i];
+        final tracker = visibleItemsMap[trackerId];
+        if (tracker != null) {
+          tracker.sortOrder = slots[i];
+          await _trackers.put(tracker);
+        }
+      }
+    });
   }
 
   // ------------------------------------------------------------------
