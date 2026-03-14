@@ -36,7 +36,6 @@ class _SyAppState extends ConsumerState<SyApp> {
   ThemeData? _amoledTheme;
   bool _isLoading = true;
   AppLifecycleListener? _lifecycleListener;
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -54,8 +53,6 @@ class _SyAppState extends ConsumerState<SyApp> {
   void _lockVault() {
     // If the provider hasn't been initialized yet, this might throw, but since we ensure it earlier it should be safe.
     ref.read(vaultProvider.notifier).lockVault();
-    // Eject user back to home screen for security
-    _navigatorKey.currentState?.popUntil((route) => route.isFirst);
   }
 
   @override
@@ -155,7 +152,6 @@ class _SyAppState extends ConsumerState<SyApp> {
 
     return MaterialApp(
       title: 'SY',
-      navigatorKey: _navigatorKey,
       theme: _lightTheme ?? ThemeData.light(),
       darkTheme: activeDarkTheme,
       themeMode: activeThemeMode,

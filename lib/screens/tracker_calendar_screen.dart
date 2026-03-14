@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../widgets/tracker_calendar.dart';
 import '../widgets/tracker_stats_view.dart';
+import '../logic/vault_provider.dart';
 
 class TrackerCalendarScreen extends ConsumerStatefulWidget {
   const TrackerCalendarScreen({super.key, required this.tracker});
@@ -33,6 +34,17 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Eject user if vault locks and this is an encrypted tracker
+    ref.listen(vaultProvider, (previous, next) {
+      final wasUnlocked = previous?.isVaultUnlocked ?? false;
+      final isUnlocked = next.isVaultUnlocked;
+      if (wasUnlocked && !isUnlocked && widget.tracker.privacyLevel != PrivacyLevel.standard) {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: Row(

@@ -3,11 +3,12 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import '/data/database.dart';
 import '/data/tracker_repository.dart';
 import '/data/tracker_config.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'gradient_picker.dart';
 
 import '/logic/vault_provider.dart';
 
-class TrackerEditorSheet extends StatefulWidget {
+class TrackerEditorSheet extends ConsumerStatefulWidget {
   const TrackerEditorSheet({
     super.key,
     required this.repo,
@@ -22,10 +23,10 @@ class TrackerEditorSheet extends StatefulWidget {
   bool get isEditing => existingTracker != null;
 
   @override
-  State<TrackerEditorSheet> createState() => _TrackerEditorSheetState();
+  ConsumerState<TrackerEditorSheet> createState() => _TrackerEditorSheetState();
 }
 
-class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
+class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _intensityGoalController;
@@ -207,6 +208,23 @@ class _TrackerEditorSheetState extends State<TrackerEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
+    // Eject user if vault locks and we are dealing with a sensitive tracker
+    ref.listen(vaultProvider, (previous, next) {
+      final wasUnlocked = previous?.isVaultUnlocked ?? false;
+      final isUnlocked = next.isVaultUnlocked;
+      
+      // If vault locks
+      if (wasUnlocked && !isUnlocked) {
+        // Close if we are editing a sensitive tracker, or if we've selected a sensitive level
+        final isSensitive = widget.existingTracker?.privacyLevel != PrivacyLevel.standard || 
+                           _privacyLevel != PrivacyLevel.standard;
+                           
+        if (isSensitive && mounted) {
+          Navigator.pop(context);
+        }
+      }
+    });
 
     return SafeArea(
       child: Padding(
