@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 enum InputType { number, toggle, choice, slider, timer, text }
 
 class TrackerConfig {
