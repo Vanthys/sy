@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 import '/data/isar_database.dart';
-import '/data/migration_service.dart';
 import '/data/tracker_repository.dart';
 import '/data/entry_repository.dart';
 import '/logic/vault_provider.dart';
@@ -12,7 +11,6 @@ import '/logic/vault_provider.dart';
 
 final isarProvider = FutureProvider<Isar>((ref) async {
   final isar = await openIsarDatabase();
-  await MigrationService.runIfNeeded(isar);
   return isar;
 });
 

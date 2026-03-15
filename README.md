@@ -1,16 +1,33 @@
 # sy3
 
-A new Flutter project.
+A secure, high-performance, multi-platform habit and streak tracker built with Flutter, Riverpod, and Isar.
+
+## Features
+
+- **Flexible Tracking**: Support for Toggle, Choice, and Quantity-based trackers.
+- **Secure Vault**: Encrypted trackers with PBKDF2 hashing and AES encryption.
+- **Biometric Unlock**: Access your private trackers with fingerprint or face ID.
+- **Fast Performance**: Isar-backed persistence with off-isolate bulk calculations.
+- **Beautiful UI**: Modern Material 3 design with AMOLED support.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+### Prerequisites
 
-A few resources to get you started if this is your first Flutter project:
+- Flutter SDK (^3.9.0)
+- Android Studio / VS Code with Flutter extension
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### Installation
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. Clone the repository.
+2. Run `flutter pub get`.
+3. Generate Isar schemas:
+   ```bash
+   dart run build_runner build --delete-conflicting-outputs
+   ```
+4. Run the app:
+   ```bash
+   flutter run
+   ```
+
+

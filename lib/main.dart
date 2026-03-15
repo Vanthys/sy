@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -159,6 +160,8 @@ class _SyAppState extends ConsumerState<SyApp> {
     }
 
     return MaterialApp(
+      debugShowCheckedModeBanner: true,
+      scrollBehavior: AppScrollBehavior(),
       title: 'SY',
       theme: _lightTheme ?? ThemeData.light(),
       darkTheme: activeDarkTheme,
@@ -166,4 +169,13 @@ class _SyAppState extends ConsumerState<SyApp> {
       home: const TrackerListScreen(),
     );
   }
+}
+
+class AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+  };
 }
