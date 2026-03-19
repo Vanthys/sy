@@ -22,7 +22,13 @@ final trackerRepositoryProvider = FutureProvider<TrackerRepository>((
   ref,
 ) async {
   final isar = await ref.watch(isarProvider.future);
-  final vault = ref.watch(vaultProvider);
+  
+  // Watch only the fields that affect repository data access and encryption
+  ref.watch(vaultProvider.select((s) => (s.unlockedLevel, s.activeKey)));
+  
+  // Read the full state object to pass into the repository
+  final vault = ref.read(vaultProvider);
+  
   return TrackerRepository(isar, vault);
 });
 

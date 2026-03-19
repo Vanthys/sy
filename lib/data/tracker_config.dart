@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 enum InputType { number, toggle, choice, slider, timer, text }
 
 class TrackerConfig {
@@ -90,4 +92,30 @@ class TrackerConfig {
     'intensityGoal': intensityGoal,
     'optionColors': optionColors,
   };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TrackerConfig &&
+          runtimeType == other.runtimeType &&
+          maxValue == other.maxValue &&
+          inputType == other.inputType &&
+          unit == other.unit &&
+          intensityGoal == other.intensityGoal &&
+          listEquals(intensityColors, other.intensityColors) &&
+          listEquals(streakColors, other.streakColors) &&
+          listEquals(options, other.options) &&
+          listEquals(optionColors, other.optionColors);
+
+  @override
+  int get hashCode => Object.hash(
+        maxValue,
+        inputType,
+        unit,
+        intensityGoal,
+        Object.hashAll(intensityColors ?? []),
+        Object.hashAll(streakColors ?? []),
+        Object.hashAll(options ?? []),
+        Object.hashAll(optionColors ?? []),
+      );
 }

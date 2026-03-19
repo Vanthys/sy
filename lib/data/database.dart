@@ -81,6 +81,38 @@ class Tracker {
       sortOrder: sortOrder ?? this.sortOrder,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Tracker &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          title == other.title &&
+          description == other.description &&
+          streakType == other.streakType &&
+          privacyLevel == other.privacyLevel &&
+          config == other.config &&
+          currentStreak == other.currentStreak &&
+          longestStreak == other.longestStreak &&
+          createdAt == other.createdAt &&
+          updatedAt == other.updatedAt &&
+          sortOrder == other.sortOrder;
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        title,
+        description,
+        streakType,
+        privacyLevel,
+        config,
+        currentStreak,
+        longestStreak,
+        createdAt,
+        updatedAt,
+        sortOrder,
+      );
 }
 
 // ---------------------------------------------------------------------------
@@ -105,4 +137,28 @@ class Entry {
     required this.createdAt,
     required this.updatedAt,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Entry &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          tracker == other.tracker &&
+          date == other.date &&
+          quantity == other.quantity &&
+          comment == other.comment &&
+          createdAt == other.createdAt &&
+          updatedAt == other.updatedAt;
+
+  @override
+  int get hashCode => Object.hash(
+        id,
+        tracker,
+        date,
+        quantity,
+        comment,
+        createdAt,
+        updatedAt,
+      );
 }

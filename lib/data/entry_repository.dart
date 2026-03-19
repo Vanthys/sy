@@ -187,15 +187,22 @@ class EntryRepository {
       _StreakBatchPayload(trackers: trackers, entryGroups: entryGroups),
     );
 
+    // Batch fetch rows to avoid queries inside writeTxn
+    final updateMap = {for (var u in updates) u.id: u};
+    final rowsToUpdate = await _trackers.where().build().findAll();
+
     await _isar.writeTxn(() async {
-      for (final update in updates) {
-        final row = await _trackers.filter().uuidEqualTo(update.id).findFirst();
-        if (row == null) continue;
-        row.currentStreak = update.current;
-        row.longestStreak = update.longest;
-        row.updatedAt = DateTime.now();
-        await _trackers.put(row);
+      final toPut = <IsarTracker>[];
+      for (final row in rowsToUpdate) {
+        final update = updateMap[row.uuid];
+        if (update != null) {
+          row.currentStreak = update.current;
+          row.longestStreak = update.longest;
+          row.updatedAt = DateTime.now();
+          toPut.add(row);
+        }
       }
+      await _trackers.putAll(toPut);
     });
 
     final prefs = await SharedPreferences.getInstance();

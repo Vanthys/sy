@@ -101,6 +101,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
 
   bool _showVaultHeader = false;
   bool _isUnlocking = false;
+  bool _isCheckingVault = false;
   List<Tracker>? _pendingOrder; // Optimistic reorder state
   final _pinController = TextEditingController();
   final FocusNode _headerFocus = FocusNode();
@@ -164,27 +165,30 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     final pixels = _scrollController.position.pixels;
 
     // Only detect drag over-scrolls at the TOP of the list
-    if (pixels < -120 && !_showVaultHeader) {
-      final isConfigured = await ref
-          .read(vaultProvider.notifier)
-          .isVaultConfigured();
-      if (!isConfigured) {
-        if (mounted) {
+    if (pixels < -120 && !_showVaultHeader && !_isCheckingVault) {
+      _isCheckingVault = true;
+      try {
+        final isConfigured = await ref
+            .read(vaultProvider.notifier)
+            .isVaultConfigured();
+        if (!mounted) return;
+        
+        if (!isConfigured) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Vault is not configured. Go to Settings.'),
             ),
           );
+          return;
         }
-        return;
-      }
 
-      if (mounted) {
         setState(() => _showVaultHeader = true);
         // Add a tiny delay before requesting focus so animation can begin
         Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted) _headerFocus.requestFocus();
         });
+      } finally {
+        _isCheckingVault = false;
       }
     } else if (pixels > 20 && _showVaultHeader) {
       // Hide if they scroll down normally
