@@ -11,6 +11,8 @@ class TrackerStats {
   final int nextMilestone;
   final int currentStreak;
   final int longestStreak;
+  final DateTime? longestStreakStart;
+  final DateTime? longestStreakEnd;
 
   TrackerStats({
     required this.totalActiveDays,
@@ -21,6 +23,8 @@ class TrackerStats {
     required this.nextMilestone,
     required this.currentStreak,
     required this.longestStreak,
+    required this.longestStreakStart,
+    required this.longestStreakEnd,
   });
 }
 
@@ -70,10 +74,16 @@ final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
     final daysSinceStart =
         todayMidnight.difference(trackingStartDay).inDays + 1;
 
-    // 4. Completion Rate (Continued only)
+    // 4. Completion Rate
     double completionRate = 0.0;
-    if (tracker.streakType == StreakType.continued && daysSinceStart > 0) {
-      completionRate = totalActiveDays / daysSinceStart;
+    if (daysSinceStart > 0) {
+      if (tracker.streakType == StreakType.continued) {
+        completionRate = totalActiveDays / daysSinceStart;
+      } else {
+        // Abstinence: success means they didn't log an incident.
+        completionRate = (daysSinceStart - totalActiveDays) / daysSinceStart;
+        if (completionRate < 0) completionRate = 0;
+      }
     }
 
     // 5. Weekday Distribution (1=Mon, 7=Sun as per Dart/ISO)
@@ -104,6 +114,33 @@ final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
       orElse: () => ((currentStreak / 100).floor() + 1) * 100,
     );
 
+    // 8. Longest Streak Dates
+    final entryDaySet = sortedDays.toSet();
+    int run = 0;
+    int maxRun = 0;
+    DateTime? runStart;
+    DateTime? longestStart;
+    DateTime? longestEnd;
+
+    for (DateTime d = trackingStartDay;
+        !d.isAfter(todayMidnight);
+        d = DateTime(d.year, d.month, d.day + 1)) {
+      final hasEntry = entryDaySet.contains(d);
+      final goodDay = tracker.streakType == StreakType.continued ? hasEntry : !hasEntry;
+      
+      if (goodDay) {
+        if (run == 0) runStart = d;
+        run++;
+        if (run > maxRun) {
+          maxRun = run;
+          longestStart = runStart;
+          longestEnd = d;
+        }
+      } else {
+        run = 0;
+      }
+    }
+
     return TrackerStats(
       totalActiveDays: totalActiveDays,
       totalQuantity: totalQuantity,
@@ -112,7 +149,9 @@ final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
       monthlyAverage: monthlyAverage,
       nextMilestone: nextMilestone,
       currentStreak: tracker.currentStreak,
-      longestStreak: tracker.longestStreak,
+      longestStreak: maxRun > tracker.longestStreak ? maxRun : tracker.longestStreak,
+      longestStreakStart: longestStart,
+      longestStreakEnd: longestEnd,
     );
   });
 });
