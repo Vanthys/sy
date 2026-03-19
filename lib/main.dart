@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:json_theme/json_theme.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +23,12 @@ void main() async {
       child: const SyApp(),
     ),
   );
+}
+
+/// Top-level function so [compute] can spawn it in a background isolate.
+ThemeData _decodeThemeData(String themeStr) {
+  final themeJson = jsonDecode(themeStr);
+  return ThemeDecoder.decodeThemeData(themeJson)!;
 }
 
 class SyApp extends ConsumerStatefulWidget {
@@ -86,8 +94,9 @@ class _SyAppState extends ConsumerState<SyApp> {
 
   Future<ThemeData> _loadTheme(String path) async {
     final themeStr = await rootBundle.loadString(path);
-    final themeJson = jsonDecode(themeStr);
-    final base = ThemeDecoder.decodeThemeData(themeJson)!;
+    // Decode JSON + construct ThemeData in a background isolate — keeps the
+    // main thread free and the startup spinner animation smooth.
+    final base = await compute(_decodeThemeData, themeStr);
 
     final cleanBaseTextTheme = ThemeData(brightness: base.brightness).textTheme;
     final typographyTextTheme = GoogleFonts.jetBrainsMonoTextTheme(
@@ -151,6 +160,8 @@ class _SyAppState extends ConsumerState<SyApp> {
     }
 
     return MaterialApp(
+      debugShowCheckedModeBanner: true,
+      scrollBehavior: AppScrollBehavior(),
       title: 'SY',
       theme: _lightTheme ?? ThemeData.light(),
       darkTheme: activeDarkTheme,
@@ -158,4 +169,13 @@ class _SyAppState extends ConsumerState<SyApp> {
       home: const TrackerListScreen(),
     );
   }
+}
+
+class AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+  };
 }

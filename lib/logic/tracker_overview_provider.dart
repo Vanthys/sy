@@ -35,11 +35,7 @@ final trackerOverviewProvider = StreamProvider.family<List<double>, String>((
     }
 
     // Convert to ordered list oldest → newest
-    // Since we generated the map with 'start.add(i)', it's already semi-ordered if we use its values directly.
-    // But to be safe against all odds, we sort by key.
-    final sortedEntries = dayMap.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-
-    return sortedEntries.map((e) => e.value).toList();
+    // Dart LinkedHashMaps preserve insertion order, so dayMap values are already correctly ordered from oldest to newest.
+    return dayMap.values.toList();
   });
 });

@@ -44,8 +44,6 @@ class VaultNotifier extends StateNotifier<VaultState> {
     _init();
   }
 
-  static const _generalPinKey = 'vault_general_pin';
-  static const _secretPinKey = 'vault_secret_pin';
   static const _biometricsEnabledKey = 'vault_biometrics_enabled';
   static const _screenProtectionEnabledKey = 'vault_screen_protection_enabled';
 
@@ -70,7 +68,6 @@ class VaultNotifier extends StateNotifier<VaultState> {
       isBiometricsEnabled: bioEnabled,
       isScreenProtectionEnabled: screenEnabled,
     );
-    await _performMigrationIfNeeded();
   }
 
   /// Attempt to unlock the vault.
@@ -234,23 +231,6 @@ class VaultNotifier extends StateNotifier<VaultState> {
     if (hash == null || salt == null) return false;
 
     return await EncryptionUtils.verifyPinPbkdf2(pin, hash, salt);
-  }
-
-  /// Transparently migrates plain text SharedPreferences PINs to Secure Storage hashes.
-  Future<void> _performMigrationIfNeeded() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final legacyGeneralPin = prefs.getString(_generalPinKey);
-    if (legacyGeneralPin != null) {
-      await setGeneralPin(legacyGeneralPin);
-      await prefs.remove(_generalPinKey);
-    }
-
-    final legacySecretPin = prefs.getString(_secretPinKey);
-    if (legacySecretPin != null) {
-      await setSecretPin(legacySecretPin);
-      await prefs.remove(_secretPinKey);
-    }
   }
 }
 

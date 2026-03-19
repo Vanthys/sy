@@ -101,6 +101,8 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
 
   bool _showVaultHeader = false;
   bool _isUnlocking = false;
+  bool _isCheckingVault = false;
+  List<Tracker>? _pendingOrder; // Optimistic reorder state
   final _pinController = TextEditingController();
   final FocusNode _headerFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
@@ -154,7 +156,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
 
   void _onScroll() async {
     if (!_scrollController.hasClients) return;
-    
+
     final vaultState = ref.read(vaultProvider);
 
     // Disallow triggering if vault is already unlocked
@@ -163,27 +165,30 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     final pixels = _scrollController.position.pixels;
 
     // Only detect drag over-scrolls at the TOP of the list
-    if (pixels < -120 && !_showVaultHeader) {
-      final isConfigured = await ref
-          .read(vaultProvider.notifier)
-          .isVaultConfigured();
-      if (!isConfigured) {
-        if (mounted) {
+    if (pixels < -120 && !_showVaultHeader && !_isCheckingVault) {
+      _isCheckingVault = true;
+      try {
+        final isConfigured = await ref
+            .read(vaultProvider.notifier)
+            .isVaultConfigured();
+        if (!mounted) return;
+        
+        if (!isConfigured) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Vault is not configured. Go to Settings.'),
             ),
           );
+          return;
         }
-        return;
-      }
 
-      if (mounted) {
         setState(() => _showVaultHeader = true);
         // Add a tiny delay before requesting focus so animation can begin
         Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted) _headerFocus.requestFocus();
         });
+      } finally {
+        _isCheckingVault = false;
       }
     } else if (pixels > 20 && _showVaultHeader) {
       // Hide if they scroll down normally
@@ -225,8 +230,12 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Error loading data:\n$e')),
         data: (trackers) {
+          // Use the optimistic order during a pending reorder, so the list
+          // doesn't flicker back to the stale DB order mid-write.
+          final displayTrackers = _pendingOrder ?? trackers;
+
           Widget listView;
-          if (trackers.isEmpty && !vaultState.isVaultUnlocked) {
+          if (displayTrackers.isEmpty && !vaultState.isVaultUnlocked) {
             listView = ListView(
               controller: _scrollController,
               physics: const BouncingScrollPhysics(
@@ -250,19 +259,19 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
               buildDefaultDragHandles: false,
               onReorder: (oldIndex, newIndex) async {
                 final isVaultUnlocked = ref.read(vaultProvider).isVaultUnlocked;
-                final mutableTrackers = trackers.toList();
-                
+                final mutableTrackers = displayTrackers.toList();
+
                 int adjustedOldPath = oldIndex;
                 int adjustedNewPath = newIndex;
 
                 if (isVaultUnlocked) {
                   // Index 0 is the vault banner. Don't reorder it.
                   if (oldIndex == 0) return;
-                  
+
                   // Adjust to 0-based index for the actual trackers list
                   adjustedOldPath = oldIndex - 1;
                   adjustedNewPath = newIndex - 1;
-                  
+
                   // If moving to the very top (where banner is), cap at index 0 of trackers
                   if (adjustedNewPath < 0) adjustedNewPath = 0;
                 }
@@ -273,16 +282,20 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                 final item = mutableTrackers.removeAt(adjustedOldPath);
                 mutableTrackers.insert(adjustedNewPath, item);
 
+                // Optimistic update: render the new order immediately so there's
+                // no flicker back to the old order while the DB write happens.
+                setState(() => _pendingOrder = mutableTrackers);
+
                 final repo = await ref.read(trackerRepositoryProvider.future);
                 await repo.reorderTrackers(
                   mutableTrackers.map((t) => t.id).toList(),
                 );
+
+                // Isar stream now emits the confirmed order — clear pending.
+                if (mounted) setState(() => _pendingOrder = null);
               },
               proxyDecorator: (widget, index, animation) {
-                return Material(
-                  color: Colors.transparent,
-                  child: widget,
-                );
+                return Material(color: Colors.transparent, child: widget);
               },
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
@@ -293,14 +306,15 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                 right: 8,
                 bottom: 80,
               ),
-              itemCount: trackers.length + (vaultState.isVaultUnlocked ? 1 : 0),
+              itemCount:
+                  displayTrackers.length + (vaultState.isVaultUnlocked ? 1 : 0),
               itemBuilder: (context, i) {
-                final key =
-                    vaultState.isVaultUnlocked && i == 0
-                        ? const ValueKey('vault_banner')
-                        : ValueKey(
-                          trackers[vaultState.isVaultUnlocked ? i - 1 : i].id,
-                        );
+                final key = vaultState.isVaultUnlocked && i == 0
+                    ? const ValueKey('vault_banner')
+                    : ValueKey(
+                        displayTrackers[vaultState.isVaultUnlocked ? i - 1 : i]
+                            .id,
+                      );
 
                 // If vault is unlocked, show a lock banner at the very top
                 if (vaultState.isVaultUnlocked && i == 0) {
@@ -349,32 +363,33 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                   );
                 }
 
-              // Adjust index if we added the banner
-              final trackerIndex = vaultState.isVaultUnlocked ? i - 1 : i;
-              final tracker = trackers[trackerIndex];
+                // Adjust index if we added the banner
+                final trackerIndex = vaultState.isVaultUnlocked ? i - 1 : i;
+                final tracker = displayTrackers[trackerIndex];
 
-              return ReorderableDelayedDragStartListener(
-                key: key,
-                index: i,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 0),
-                  child: TrackerOverviewCard(
-                    tracker: tracker,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TrackerCalendarScreen(tracker: tracker),
-                        ),
-                      );
-                    },
-                    onEdit: () =>
-                        _openTrackerEditor(context, ref, existing: tracker),
-                    onDelete: () => _deleteTracker(context, ref, tracker),
+                return ReorderableDelayedDragStartListener(
+                  key: key,
+                  index: i,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 0),
+                    child: TrackerOverviewCard(
+                      tracker: tracker,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                TrackerCalendarScreen(tracker: tracker),
+                          ),
+                        );
+                      },
+                      onEdit: () =>
+                          _openTrackerEditor(context, ref, existing: tracker),
+                      onDelete: () => _deleteTracker(context, ref, tracker),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
             );
           }
 
@@ -419,9 +434,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                   elevation: 8,
                   shadowColor: Colors.black26,
                   borderRadius: BorderRadius.circular(100),
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
@@ -457,7 +470,8 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                         else
                           IconButton(
                             icon: const Icon(Icons.arrow_forward),
-                            onPressed: () => _submitVaultPin(_pinController.text),
+                            onPressed: () =>
+                                _submitVaultPin(_pinController.text),
                           ),
                         if (vaultState.isBiometricsEnabled && !_isUnlocking)
                           IconButton(
