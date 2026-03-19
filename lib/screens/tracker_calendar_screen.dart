@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../widgets/tracker_calendar.dart';
-import '../widgets/tracker_stats_view.dart';
+import '../widgets/tracker_stats/tracker_stats_view.dart';
 import '../logic/vault_provider.dart';
 
 class TrackerCalendarScreen extends ConsumerStatefulWidget {

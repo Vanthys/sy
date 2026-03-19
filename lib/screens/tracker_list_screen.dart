@@ -124,6 +124,9 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     final unlocked = await notifier.unlockVault(pin);
 
     if (unlocked) {
+      try {
+        await ref.read(trackerListProvider.future);
+      } catch (_) {}
       if (mounted) {
         setState(() {
           _showVaultHeader = false;
@@ -148,7 +151,16 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     final notifier = ref.read(vaultProvider.notifier);
     final unlocked = await notifier.unlockVaultWithBiometrics();
     if (unlocked) {
-      if (mounted) setState(() => _showVaultHeader = false);
+      if (mounted) setState(() => _isUnlocking = true);
+      try {
+        await ref.read(trackerListProvider.future);
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _showVaultHeader = false;
+          _isUnlocking = false;
+        });
+      }
       _pinController.clear();
       _headerFocus.unfocus();
     }
@@ -227,6 +239,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
         label: const Text('New Tracker'),
       ),
       body: trackersAsync.when(
+        skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Error loading data:\n$e')),
         data: (trackers) {
@@ -402,7 +415,27 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                     _headerFocus.unfocus();
                   }
                 },
-                child: listView,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, 0.02),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey('tracker_list_${displayTrackers.length}_${vaultState.isVaultUnlocked}'),
+                    child: listView,
+                  ),
+                ),
               ),
 
               // Dimming Backdrop
