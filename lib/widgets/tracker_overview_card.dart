@@ -197,7 +197,9 @@ class TrackerOverviewCard extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final config = tracker.config;
 
-    final fallbackMax = data.isEmpty ? 1.0 : data.reduce((a, b) => a > b ? a : b);
+    final fallbackMax = data.isEmpty
+        ? 1.0
+        : data.reduce((a, b) => a > b ? a : b);
     final maxVal = config.intensityGoal ?? config.maxValue ?? fallbackMax;
 
     final cells = List<double>.generate(_gridRows * _gridCols, (i) {

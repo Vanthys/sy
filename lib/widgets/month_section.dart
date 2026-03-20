@@ -64,8 +64,8 @@ class DayBlock extends StatelessWidget {
                 borderRadius: borderRadius,
                 gradient: LinearGradient(
                   colors: dayData.streakGradient,
-                  begin: inputType == InputType.choice 
-                      ? const FractionalOffset(0.0, 0.0) 
+                  begin: inputType == InputType.choice
+                      ? const FractionalOffset(0.0, 0.0)
                       : FractionalOffset(-columnIndex.toDouble(), 0.0),
                   end: inputType == InputType.choice
                       ? const FractionalOffset(1.0, 0.0)
@@ -98,7 +98,9 @@ class DayBlock extends StatelessWidget {
                         dayData.date.day.toString(),
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: inStreak ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: inStreak
+                              ? FontWeight.w600
+                              : FontWeight.w500,
                           color: inStreak
                               ? Colors.white.withAlpha(220)
                               : hasData

@@ -35,11 +35,9 @@ Widget _buildHarness(Widget child) {
   return ProviderScope(
     overrides: [
       // Override the provider to avoid needing a real database connection.
-      trackerOverviewProvider.overrideWith(
-        (ref, trackerId) async* {
-          yield List<double>.filled(28, 0.0);
-        },
-      ),
+      trackerOverviewProvider.overrideWith((ref, trackerId) async* {
+        yield List<double>.filled(28, 0.0);
+      }),
     ],
     child: MaterialApp(home: Scaffold(body: child)),
   );

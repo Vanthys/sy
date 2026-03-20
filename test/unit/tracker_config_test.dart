@@ -54,10 +54,7 @@ void main() {
       });
 
       test('streakColor (single string) → two-element list', () {
-        final json = {
-          'streakColor': '#123456',
-          'inputType': 'toggle',
-        };
+        final json = {'streakColor': '#123456', 'inputType': 'toggle'};
         final config = TrackerConfig.fromJson(json);
         expect(config.intensityColors, ['#123456', '#123456']);
         expect(config.streakColors, ['#123456', '#123456']);

@@ -29,8 +29,9 @@ import '/data/database.dart';
       .toSet();
 
   final sortedDays = entryDays.toList()..sort();
-  final earliestEntry =
-      sortedDays.isEmpty ? createdAtMidnight : sortedDays.first;
+  final earliestEntry = sortedDays.isEmpty
+      ? createdAtMidnight
+      : sortedDays.first;
   final trackingStartDay = earliestEntry.isBefore(createdAtMidnight)
       ? earliestEntry
       : createdAtMidnight;

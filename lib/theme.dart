@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 
 /// Core color palette (intensity theme)
 const Color kPrimary = Color(0xFF9B2FAE); // deep purple-magenta
-const Color kSecondary = Color.fromARGB(255, 53, 144, 229); // intense red accent
+const Color kSecondary = Color.fromARGB(
+  255,
+  53,
+  144,
+  229,
+); // intense red accent
 const Color kSurfaceDark = Color(0xFF121212); // very dark surface background
 const Color kSurfaceDarkElevated = Color(0xFF333333);
 
 const Color kSurfaceLight = Color(0xFFFDFDFD); // soft light background
 const Color kSurfaceLightElevated = Color(0xFFAAAAAA);
-
 
 /// Light theme
 final ColorScheme lightColorScheme = ColorScheme(
@@ -48,7 +52,6 @@ final ColorScheme darkColorScheme = ColorScheme(
   onSecondaryContainer: Colors.white,
   outline: Colors.grey.shade700,
 );
-
 
 final ThemeData lightTheme = ThemeData(
   colorScheme: lightColorScheme,

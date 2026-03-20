@@ -15,10 +15,7 @@ Future<String> _computePbkdf2(Map<String, dynamic> args) async {
   );
 
   final secretKey = crypto.SecretKeyData(utf8.encode(pin));
-  final mac = await pbkdf2.deriveKey(
-    secretKey: secretKey,
-    nonce: salt,
-  );
+  final mac = await pbkdf2.deriveKey(secretKey: secretKey, nonce: salt);
   final bytes = await mac.extractBytes();
   return base64Encode(bytes);
 }
@@ -36,7 +33,11 @@ class EncryptionUtils {
   }
 
   /// Verifies a PIN against a previously hashed PBKDF2 hash.
-  static Future<bool> verifyPinPbkdf2(String pin, String storedHashBase64, String saltBase64) async {
+  static Future<bool> verifyPinPbkdf2(
+    String pin,
+    String storedHashBase64,
+    String saltBase64,
+  ) async {
     final salt = base64Decode(saltBase64);
     final computedHash = await hashPinPbkdf2(pin, salt);
     return computedHash == storedHashBase64;

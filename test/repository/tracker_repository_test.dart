@@ -213,7 +213,7 @@ void main() {
 
         final all = await repo.getAllTrackers();
         final alphaId = all[0].id; // sortOrder 0
-        final betaId = all[1].id;  // sortOrder 1
+        final betaId = all[1].id; // sortOrder 1
 
         // Reorder: Beta before Alpha
         await repo.reorderTrackers([betaId, alphaId]);
@@ -229,21 +229,23 @@ void main() {
     // Privacy / vault
     // -----------------------------------------------------------------------
     group('privacy filter', () {
-      test('getAllTrackers only shows standard trackers when vault is locked',
-          () async {
-        await repo.createTracker(
-          title: 'Public',
-          streakType: StreakType.continued,
-          config: const TrackerConfig(),
-          privacyLevel: PrivacyLevel.standard,
-        );
-        // Private tracker requires an active vault key — skip creation since
-        // vault is locked (no activeKey); just verify that the standard one
-        // is visible.
-        final all = await repo.getAllTrackers();
-        expect(all, hasLength(1));
-        expect(all.first.title, 'Public');
-      });
+      test(
+        'getAllTrackers only shows standard trackers when vault is locked',
+        () async {
+          await repo.createTracker(
+            title: 'Public',
+            streakType: StreakType.continued,
+            config: const TrackerConfig(),
+            privacyLevel: PrivacyLevel.standard,
+          );
+          // Private tracker requires an active vault key — skip creation since
+          // vault is locked (no activeKey); just verify that the standard one
+          // is visible.
+          final all = await repo.getAllTrackers();
+          expect(all, hasLength(1));
+          expect(all.first.title, 'Public');
+        },
+      );
     });
   });
 }

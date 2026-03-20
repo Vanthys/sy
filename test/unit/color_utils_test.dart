@@ -3,24 +3,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sy3/utils/color_utils.dart';
 
 // Helper: compare Color by argb int value (avoids MaterialColor vs Color mismatch)
-Matcher colorEquals(Color expected) =>
-    predicate<Color>((c) => c.value == expected.value, 'Color(0x${expected.value.toRadixString(16).padLeft(8, '0').toUpperCase()})');
+Matcher colorEquals(Color expected) => predicate<Color>(
+  (c) => c.toARGB32() == expected.toARGB32(),
+  'Color(0x${expected.toARGB32().toRadixString(16).padLeft(8, '0').toUpperCase()})',
+);
 
 void main() {
   group('ColorUtils.parseHexColor', () {
     test('parses 6-char hex without #', () {
       final color = ColorUtils.parseHexColor('FF0000');
-      expect(color?.value, const Color(0xFFFF0000).value);
+      expect(color?.toARGB32(), const Color(0xFFFF0000).toARGB32());
     });
 
     test('parses 6-char hex with #', () {
       final color = ColorUtils.parseHexColor('#00FF00');
-      expect(color?.value, const Color(0xFF00FF00).value);
+      expect(color?.toARGB32(), const Color(0xFF00FF00).toARGB32());
     });
 
     test('parses 8-char AARRGGBB hex', () {
       final color = ColorUtils.parseHexColor('AABBCCDD');
-      expect(color?.value, const Color(0xAABBCCDD).value);
+      expect(color?.toARGB32(), const Color(0xAABBCCDD).toARGB32());
     });
 
     test('returns null for null input', () {
@@ -35,10 +37,10 @@ void main() {
   group('ColorUtils.getColorForAmount', () {
     test('amount <= 0 returns grey.shade200', () {
       final color = ColorUtils.getColorForAmount(0);
-      expect(color.value, Colors.grey.shade200.value);
+      expect(color.toARGB32(), Colors.grey.shade200.toARGB32());
 
       final colorNeg = ColorUtils.getColorForAmount(-5);
-      expect(colorNeg.value, Colors.grey.shade200.value);
+      expect(colorNeg.toARGB32(), Colors.grey.shade200.toARGB32());
     });
 
     test('single color list → always returns that color', () {
@@ -50,7 +52,7 @@ void main() {
         preParsedColors: [red],
         maxValue: 10,
       );
-      expect(color.value, red.value);
+      expect(color.toARGB32(), red.toARGB32());
     });
 
     test('amount >= maxValue clamps to last color', () {
@@ -61,7 +63,7 @@ void main() {
         preParsedColors: [blue, green],
         maxValue: 10,
       );
-      expect(color.value, green.value);
+      expect(color.toARGB32(), green.toARGB32());
     });
 
     test('amount at exactly maxValue returns last color', () {
@@ -72,7 +74,7 @@ void main() {
         preParsedColors: [blue, green],
         maxValue: 10,
       );
-      expect(color.value, green.value);
+      expect(color.toARGB32(), green.toARGB32());
     });
 
     test('mid-range interpolates between two colors', () {
@@ -85,15 +87,12 @@ void main() {
         maxValue: 10,
       );
       // Not blue, not red, but somewhere in between
-      expect(color.value, isNot(equals(blue.value)));
-      expect(color.value, isNot(equals(red.value)));
+      expect(color.toARGB32(), isNot(equals(blue.toARGB32())));
+      expect(color.toARGB32(), isNot(equals(red.toARGB32())));
     });
 
     test('fallback when no colors provided — does not throw', () {
-      expect(
-        () => ColorUtils.getColorForAmount(3),
-        returnsNormally,
-      );
+      expect(() => ColorUtils.getColorForAmount(3), returnsNormally);
     });
 
     test('three-color gradient picks correct segment at 90%', () {
@@ -106,7 +105,7 @@ void main() {
         maxValue: 10,
       );
       // Not blue
-      expect(color.value, isNot(equals(blue.value)));
+      expect(color.toARGB32(), isNot(equals(blue.toARGB32())));
     });
   });
 
@@ -115,12 +114,12 @@ void main() {
 
     test('valid index returns correct color', () {
       final color = ColorUtils.getColorForChoice(1, optionColors: optionColors);
-      expect(color.value, const Color(0xFF00FF00).value);
+      expect(color.toARGB32(), const Color(0xFF00FF00).toARGB32());
     });
 
     test('index 0 returns first color', () {
       final color = ColorUtils.getColorForChoice(0, optionColors: optionColors);
-      expect(color.value, const Color(0xFFFF0000).value);
+      expect(color.toARGB32(), const Color(0xFFFF0000).toARGB32());
     });
 
     test('negative index returns fallback', () {
@@ -130,7 +129,7 @@ void main() {
         optionColors: optionColors,
         fallback: fallback,
       );
-      expect(color.value, fallback.value);
+      expect(color.toARGB32(), fallback.toARGB32());
     });
 
     test('index >= length returns fallback', () {
@@ -140,7 +139,7 @@ void main() {
         optionColors: optionColors,
         fallback: fallback,
       );
-      expect(color.value, fallback.value);
+      expect(color.toARGB32(), fallback.toARGB32());
     });
 
     test('null optionColors returns fallback', () {
@@ -150,7 +149,7 @@ void main() {
         optionColors: null,
         fallback: fallback,
       );
-      expect(color.value, fallback.value);
+      expect(color.toARGB32(), fallback.toARGB32());
     });
   });
 }

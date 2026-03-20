@@ -92,7 +92,11 @@ void main() {
         final salt = EncryptionUtils.generateSalt();
         final saltBase64 = base64Encode(salt);
         final hash = await EncryptionUtils.hashPinPbkdf2('mypin', salt);
-        final ok = await EncryptionUtils.verifyPinPbkdf2('mypin', hash, saltBase64);
+        final ok = await EncryptionUtils.verifyPinPbkdf2(
+          'mypin',
+          hash,
+          saltBase64,
+        );
         expect(ok, isTrue);
       });
 
@@ -100,8 +104,11 @@ void main() {
         final salt = EncryptionUtils.generateSalt();
         final saltBase64 = base64Encode(salt);
         final hash = await EncryptionUtils.hashPinPbkdf2('correctpin', salt);
-        final ok =
-            await EncryptionUtils.verifyPinPbkdf2('wrongpin', hash, saltBase64);
+        final ok = await EncryptionUtils.verifyPinPbkdf2(
+          'wrongpin',
+          hash,
+          saltBase64,
+        );
         expect(ok, isFalse);
       });
     });

@@ -109,13 +109,13 @@ class TrackerConfig {
 
   @override
   int get hashCode => Object.hash(
-        maxValue,
-        inputType,
-        unit,
-        intensityGoal,
-        Object.hashAll(intensityColors ?? []),
-        Object.hashAll(streakColors ?? []),
-        Object.hashAll(options ?? []),
-        Object.hashAll(optionColors ?? []),
-      );
+    maxValue,
+    inputType,
+    unit,
+    intensityGoal,
+    Object.hashAll(intensityColors ?? []),
+    Object.hashAll(streakColors ?? []),
+    Object.hashAll(options ?? []),
+    Object.hashAll(optionColors ?? []),
+  );
 }

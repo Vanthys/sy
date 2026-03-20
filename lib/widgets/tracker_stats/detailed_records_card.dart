@@ -18,10 +18,14 @@ class DetailedRecordsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    
+
     String longestDateStr = 'Not achieved yet';
-    if (stats.longestStreak > 0 && stats.longestStreakStart != null && stats.longestStreakEnd != null) {
-      final startFn = DateFormat('MMM d, yyyy').format(stats.longestStreakStart!);
+    if (stats.longestStreak > 0 &&
+        stats.longestStreakStart != null &&
+        stats.longestStreakEnd != null) {
+      final startFn = DateFormat(
+        'MMM d, yyyy',
+      ).format(stats.longestStreakStart!);
       final endFn = DateFormat('MMM d, yyyy').format(stats.longestStreakEnd!);
       if (stats.longestStreakStart == stats.longestStreakEnd) {
         longestDateStr = startFn;
@@ -29,7 +33,7 @@ class DetailedRecordsCard extends StatelessWidget {
         longestDateStr = '$startFn - $endFn';
       }
     }
-    
+
     final createdStr = DateFormat('MMMM d, yyyy').format(tracker.createdAt);
 
     return Container(

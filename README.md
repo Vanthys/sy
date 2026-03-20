@@ -30,4 +30,24 @@ A secure, high-performance, multi-platform habit and streak tracker built with F
    flutter run
    ```
 
+## Testing
 
+This project includes a comprehensive test suite covering unit logic, widget rendering, and in-memory Isar repository integration.
+
+To run the local test suite:
+```bash
+flutter test
+```
+
+*Note: The repository integration tests rely on Isar's native library. On Windows, ensure you have run `flutter build windows` at least once so the tests can locate `libisar.dll`.*
+
+## Continuous Integration (CI)
+
+We use GitHub Actions to enforce code quality on the `main` branch. 
+
+Every Pull Request and direct push to `main` will automatically trigger:
+1. `dart format` to ensure clean code style
+2. `flutter analyze` to catch potential bugs and lint errors
+3. `flutter test` to ensure no regressions occur across the 80+ test suite
+
+Please ensure your code passes formatting, analysis, and tests locally before opening a pull request.

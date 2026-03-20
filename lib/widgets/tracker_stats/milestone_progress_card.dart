@@ -15,7 +15,9 @@ class MilestoneProgressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final progress = stats.currentStreak / (stats.nextMilestone == 0 ? 1 : stats.nextMilestone);
+    final progress =
+        stats.currentStreak /
+        (stats.nextMilestone == 0 ? 1 : stats.nextMilestone);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -40,9 +42,9 @@ class MilestoneProgressCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   '${stats.nextMilestone - stats.currentStreak} days remaining',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -52,7 +54,8 @@ class MilestoneProgressCard extends StatelessWidget {
                     Text(
                       '${stats.currentStreak} day streak',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: accent, fontWeight: FontWeight.bold,
+                        color: accent,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],

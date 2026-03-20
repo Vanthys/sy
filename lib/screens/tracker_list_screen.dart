@@ -184,7 +184,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
             .read(vaultProvider.notifier)
             .isVaultConfigured();
         if (!mounted) return;
-        
+
         if (!isConfigured) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -432,7 +432,9 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                     );
                   },
                   child: KeyedSubtree(
-                    key: ValueKey('tracker_list_${displayTrackers.length}_${vaultState.isVaultUnlocked}'),
+                    key: ValueKey(
+                      'tracker_list_${displayTrackers.length}_${vaultState.isVaultUnlocked}',
+                    ),
                     child: listView,
                   ),
                 ),

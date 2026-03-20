@@ -52,7 +52,9 @@ class ColorUtils {
     List<String>? optionColors,
     Color fallback = Colors.blue,
   }) {
-    if (optionColors == null || choiceIndex < 0 || choiceIndex >= optionColors.length) {
+    if (optionColors == null ||
+        choiceIndex < 0 ||
+        choiceIndex >= optionColors.length) {
       return fallback;
     }
     return parseHexColor(optionColors[choiceIndex]) ?? fallback;

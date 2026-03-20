@@ -98,7 +98,11 @@ final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
     }
 
     // 6. Monthly Average (last 30 days)
-    final thirtyDaysAgo = DateTime(todayMidnight.year, todayMidnight.month, todayMidnight.day - 29);
+    final thirtyDaysAgo = DateTime(
+      todayMidnight.year,
+      todayMidnight.month,
+      todayMidnight.day - 29,
+    );
     final recentEntries = meaningfulEntries.where(
       (e) => !e.date.isBefore(thirtyDaysAgo),
     );
@@ -122,12 +126,16 @@ final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
     DateTime? longestStart;
     DateTime? longestEnd;
 
-    for (DateTime d = trackingStartDay;
-        !d.isAfter(todayMidnight);
-        d = DateTime(d.year, d.month, d.day + 1)) {
+    for (
+      DateTime d = trackingStartDay;
+      !d.isAfter(todayMidnight);
+      d = DateTime(d.year, d.month, d.day + 1)
+    ) {
       final hasEntry = entryDaySet.contains(d);
-      final goodDay = tracker.streakType == StreakType.continued ? hasEntry : !hasEntry;
-      
+      final goodDay = tracker.streakType == StreakType.continued
+          ? hasEntry
+          : !hasEntry;
+
       if (goodDay) {
         if (run == 0) runStart = d;
         run++;
@@ -149,7 +157,9 @@ final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
       monthlyAverage: monthlyAverage,
       nextMilestone: nextMilestone,
       currentStreak: tracker.currentStreak,
-      longestStreak: maxRun > tracker.longestStreak ? maxRun : tracker.longestStreak,
+      longestStreak: maxRun > tracker.longestStreak
+          ? maxRun
+          : tracker.longestStreak,
       longestStreakStart: longestStart,
       longestStreakEnd: longestEnd,
     );
