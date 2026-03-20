@@ -7,6 +7,7 @@ import '/data/database.dart';
 import '/data/schemas/tracker_schema.dart';
 import '/data/schemas/entry_schema.dart';
 import '/data/tracker_config.dart';
+import '/data/streak_logic.dart';
 
 class EntryRepository {
   final Isar _isar;
@@ -244,75 +245,8 @@ List<_StreakUpdate> _recalculateStreaksTask(_StreakBatchPayload payload) {
   return results;
 }
 
+// Delegate to the shared public function in streak_logic.dart
 (int current, int longest) _computeStreaks(
   Tracker tracker,
   List<Entry> entries,
-) {
-  final type = tracker.streakType;
-  final createdAt = tracker.createdAt;
-  final createdAtMidnight = DateTime(
-    createdAt.year,
-    createdAt.month,
-    createdAt.day,
-  );
-
-  final today = DateTime.now();
-  final todayMidnight = DateTime(today.year, today.month, today.day);
-
-  final entryDays = entries
-      .where((e) => e.quantity.round() > 0)
-      .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
-      .toSet();
-
-  final sortedDays = entryDays.toList()..sort();
-  final earliestEntry = sortedDays.isEmpty
-      ? createdAtMidnight
-      : sortedDays.first;
-  final trackingStartDay = earliestEntry.isBefore(createdAtMidnight)
-      ? earliestEntry
-      : createdAtMidnight;
-
-  if (entries.isEmpty) {
-    final daysSinceStart =
-        todayMidnight.difference(trackingStartDay).inDays + 1;
-    return type == StreakType.continued
-        ? (0, 0)
-        : (daysSinceStart, daysSinceStart);
-  }
-
-  // Longest streak
-  int longest = 0;
-  int streak = 0;
-  for (
-    DateTime d = trackingStartDay;
-    !d.isAfter(todayMidnight);
-    d = DateTime(d.year, d.month, d.day + 1)
-  ) {
-    final hasEntry = entryDays.contains(d);
-    final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
-    if (goodDay) {
-      streak++;
-      if (streak > longest) longest = streak;
-    } else {
-      streak = 0;
-    }
-  }
-
-  // Current streak (ending today), DST-safe
-  int current = 0;
-  DateTime curDay = todayMidnight;
-
-  if (type == StreakType.continued && !entryDays.contains(curDay)) {
-    curDay = DateTime(curDay.year, curDay.month, curDay.day - 1);
-  }
-
-  while (!curDay.isBefore(trackingStartDay)) {
-    final hasEntry = entryDays.contains(curDay);
-    final goodDay = type == StreakType.continued ? hasEntry : !hasEntry;
-    if (!goodDay) break;
-    current++;
-    curDay = DateTime(curDay.year, curDay.month, curDay.day - 1);
-  }
-
-  return (current, longest);
-}
+) => computeStreaks(tracker, entries);
