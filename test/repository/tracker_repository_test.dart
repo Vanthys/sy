@@ -9,6 +9,7 @@ import 'package:sy3/data/database.dart';
 import 'package:sy3/data/tracker_config.dart';
 import 'package:sy3/data/tracker_repository.dart';
 import 'package:sy3/logic/vault_provider.dart';
+import 'package:sy3/utils/encryption_utils.dart';
 import '../helpers/isar_test_helper.dart';
 
 // ---------------------------------------------------------------------------
@@ -26,6 +27,16 @@ Future<Isar> _openIsar() async {
 
 /// A minimal unlocked [VaultState] with no active key (standard privacy only).
 VaultState get _unlockedVault => VaultState();
+
+VaultState _vaultState({
+  PrivacyLevel unlockedLevel = PrivacyLevel.standard,
+  String? pin,
+}) {
+  return VaultState(
+    unlockedLevel: unlockedLevel,
+    activeKey: pin != null ? EncryptionUtils.deriveKeyFromPin(pin) : null,
+  );
+}
 
 TrackerRepository _makeRepo(Isar isar) =>
     TrackerRepository(isar, _unlockedVault);
@@ -88,6 +99,43 @@ void main() {
         expect(all[0].sortOrder, 0);
         expect(all[1].sortOrder, 1);
       });
+
+      test('throws when creating a private tracker while vault key is missing', () async {
+        await expectLater(
+          repo.createTracker(
+            title: 'Private',
+            streakType: StreakType.continued,
+            config: const TrackerConfig(),
+            privacyLevel: PrivacyLevel.vault,
+          ),
+          throwsException,
+        );
+      });
+
+      test('encrypts private tracker fields at rest and decrypts with correct key', () async {
+        final privateRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '2468'),
+        );
+
+        await privateRepo.createTracker(
+          title: 'Secret Goal',
+          description: 'Keep this hidden',
+          streakType: StreakType.continued,
+          config: const TrackerConfig(),
+          privacyLevel: PrivacyLevel.vault,
+        );
+
+        final row = await isar.collection<IsarTracker>().where().findFirst();
+        expect(row, isNotNull);
+        expect(row!.title, isNot('Secret Goal'));
+        expect(row.description, isNot('Keep this hidden'));
+
+        final all = await privateRepo.getAllTrackers();
+        expect(all, hasLength(1));
+        expect(all.first.title, 'Secret Goal');
+        expect(all.first.description, 'Keep this hidden');
+      });
     });
 
     // -----------------------------------------------------------------------
@@ -111,6 +159,56 @@ void main() {
       test('returns null when not found', () async {
         final found = await repo.getTrackerById('no-such-uuid');
         expect(found, isNull);
+      });
+
+      test('returns locked placeholder when encrypted tracker is read without key', () async {
+        final privateRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '2468'),
+        );
+        await privateRepo.createTracker(
+          title: 'Secret Goal',
+          description: 'Keep this hidden',
+          streakType: StreakType.continued,
+          config: const TrackerConfig(),
+          privacyLevel: PrivacyLevel.vault,
+        );
+        final id = (await isar.collection<IsarTracker>().where().findFirst())!.uuid;
+
+        final lockedRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault),
+        );
+        final tracker = await lockedRepo.getTrackerById(id);
+
+        expect(tracker, isNotNull);
+        expect(tracker!.title, 'Locked Vault Tracker');
+        expect(tracker.description, 'Unlock the vault to view.');
+      });
+
+      test('returns incorrect-key placeholder when encrypted tracker is read with wrong key', () async {
+        final privateRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '2468'),
+        );
+        await privateRepo.createTracker(
+          title: 'Secret Goal',
+          description: 'Keep this hidden',
+          streakType: StreakType.continued,
+          config: const TrackerConfig(),
+          privacyLevel: PrivacyLevel.vault,
+        );
+        final id = (await isar.collection<IsarTracker>().where().findFirst())!.uuid;
+
+        final wrongKeyRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '9999'),
+        );
+        final tracker = await wrongKeyRepo.getTrackerById(id);
+
+        expect(tracker, isNotNull);
+        expect(tracker!.title, 'Encrypted Tracker');
+        expect(tracker.description, 'Incorrect vault key.');
       });
     });
 
@@ -150,6 +248,35 @@ void main() {
       test('updateTracker on unknown uuid is a no-op', () async {
         await repo.updateTracker('ghost', title: 'Should not fail');
         // No exception thrown
+      });
+
+      test('updates encrypted title and description for private trackers', () async {
+        final privateRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '2468'),
+        );
+        await privateRepo.createTracker(
+          title: 'Old Secret',
+          description: 'Old note',
+          streakType: StreakType.continued,
+          config: const TrackerConfig(),
+          privacyLevel: PrivacyLevel.vault,
+        );
+        final rowBefore = await isar.collection<IsarTracker>().where().findFirst();
+
+        await privateRepo.updateTracker(
+          rowBefore!.uuid,
+          title: 'New Secret',
+          description: 'Updated note',
+        );
+
+        final rowAfter = await isar.collection<IsarTracker>().where().findFirst();
+        expect(rowAfter!.title, isNot('New Secret'));
+        expect(rowAfter.description, isNot('Updated note'));
+
+        final updated = await privateRepo.getTrackerById(rowAfter.uuid);
+        expect(updated!.title, 'New Secret');
+        expect(updated.description, 'Updated note');
       });
     });
 
@@ -246,6 +373,68 @@ void main() {
           expect(all.first.title, 'Public');
         },
       );
+
+      test('getAllTrackers includes and decrypts vault trackers when unlocked', () async {
+        final privateRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '2468'),
+        );
+        await privateRepo.createTracker(
+          title: 'Private',
+          streakType: StreakType.continued,
+          config: const TrackerConfig(),
+          privacyLevel: PrivacyLevel.vault,
+        );
+        await privateRepo.createTracker(
+          title: 'Public',
+          streakType: StreakType.continued,
+          config: const TrackerConfig(),
+          privacyLevel: PrivacyLevel.standard,
+        );
+
+        final all = await privateRepo.getAllTrackers();
+        expect(all.map((t) => t.title).toList(), ['Private', 'Public']);
+      });
+    });
+
+    group('rekeyVault', () {
+      test('re-encrypts private trackers so new pin works and old pin fails', () async {
+        final originalRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '2468'),
+        );
+        await originalRepo.createTracker(
+          title: 'Secret Goal',
+          description: 'Keep this hidden',
+          streakType: StreakType.continued,
+          config: const TrackerConfig(),
+          privacyLevel: PrivacyLevel.vault,
+        );
+
+        final before = await isar.collection<IsarTracker>().where().findFirst();
+        final oldCipherTitle = before!.title;
+
+        await originalRepo.rekeyVault(PrivacyLevel.vault, '2468', '1357');
+
+        final after = await isar.collection<IsarTracker>().where().findFirst();
+        expect(after!.title, isNot(oldCipherTitle));
+
+        final oldKeyRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '2468'),
+        );
+        final newKeyRepo = TrackerRepository(
+          isar,
+          _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '1357'),
+        );
+
+        final withOldKey = await oldKeyRepo.getTrackerById(after.uuid);
+        final withNewKey = await newKeyRepo.getTrackerById(after.uuid);
+
+        expect(withOldKey!.title, 'Encrypted Tracker');
+        expect(withNewKey!.title, 'Secret Goal');
+        expect(withNewKey.description, 'Keep this hidden');
+      });
     });
   });
 }
