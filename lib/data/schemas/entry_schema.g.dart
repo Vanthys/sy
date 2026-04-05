@@ -80,7 +80,7 @@ const IsarEntrySchema = CollectionSchema(
   getId: _isarEntryGetId,
   getLinks: _isarEntryGetLinks,
   attach: _isarEntryAttach,
-  version: '3.3.0',
+  version: '3.3.2',
 );
 
 int _isarEntryEstimateSize(

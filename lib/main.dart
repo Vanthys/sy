@@ -145,7 +145,7 @@ class _SyAppState extends ConsumerState<SyApp> {
       activeDarkTheme = _amoledTheme;
     }
 
-    ThemeMode activeThemeMode;
+    ThemeMode activeThemeMode = ThemeMode.system;
     switch (themeMode) {
       case AppThemeMode.light:
         activeThemeMode = ThemeMode.light;

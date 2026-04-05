@@ -1,5 +1,7 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
+// ignore_for_file: experimental_member_use
+
 part of 'tracker_schema.dart';
 
 // **************************************************************************
@@ -105,7 +107,7 @@ const IsarTrackerSchema = CollectionSchema(
   getId: _isarTrackerGetId,
   getLinks: _isarTrackerGetLinks,
   attach: _isarTrackerAttach,
-  version: '3.3.0',
+  version: '3.3.2',
 );
 
 int _isarTrackerEstimateSize(
@@ -219,61 +221,50 @@ void _isarTrackerAttach(
 
 extension IsarTrackerByIndex on IsarCollection<IsarTracker> {
   Future<IsarTracker?> getByUuid(String uuid) {
-    // ignore: experimental_member_use
     return getByIndex(r'uuid', [uuid]);
   }
 
   IsarTracker? getByUuidSync(String uuid) {
-    // ignore: experimental_member_use
     return getByIndexSync(r'uuid', [uuid]);
   }
 
   Future<bool> deleteByUuid(String uuid) {
-    // ignore: experimental_member_use
     return deleteByIndex(r'uuid', [uuid]);
   }
 
   bool deleteByUuidSync(String uuid) {
-    // ignore: experimental_member_use
     return deleteByIndexSync(r'uuid', [uuid]);
   }
 
   Future<List<IsarTracker?>> getAllByUuid(List<String> uuidValues) {
     final values = uuidValues.map((e) => [e]).toList();
-    // ignore: experimental_member_use
     return getAllByIndex(r'uuid', values);
   }
 
   List<IsarTracker?> getAllByUuidSync(List<String> uuidValues) {
     final values = uuidValues.map((e) => [e]).toList();
-    // ignore: experimental_member_use
     return getAllByIndexSync(r'uuid', values);
   }
 
   Future<int> deleteAllByUuid(List<String> uuidValues) {
     final values = uuidValues.map((e) => [e]).toList();
-    // ignore: experimental_member_use
     return deleteAllByIndex(r'uuid', values);
   }
 
   int deleteAllByUuidSync(List<String> uuidValues) {
     final values = uuidValues.map((e) => [e]).toList();
-    // ignore: experimental_member_use
     return deleteAllByIndexSync(r'uuid', values);
   }
 
   Future<Id> putByUuid(IsarTracker object) {
-    // ignore: experimental_member_use
     return putByIndex(r'uuid', object);
   }
 
   Id putByUuidSync(IsarTracker object, {bool saveLinks = true}) {
-    // ignore: experimental_member_use
     return putByIndexSync(r'uuid', object, saveLinks: saveLinks);
   }
 
   Future<List<Id>> putAllByUuid(List<IsarTracker> objects) {
-    // ignore: experimental_member_use
     return putAllByIndex(r'uuid', objects);
   }
 
@@ -281,7 +272,6 @@ extension IsarTrackerByIndex on IsarCollection<IsarTracker> {
     List<IsarTracker> objects, {
     bool saveLinks = true,
   }) {
-    // ignore: experimental_member_use
     return putAllByIndexSync(r'uuid', objects, saveLinks: saveLinks);
   }
 }

@@ -96,6 +96,16 @@ ProviderContainer _buildContainer(_RecordingEntryRepository repository) {
   );
 }
 
+ProviderSubscription<AsyncValue<List<double>>> _keepOverviewAlive(
+  ProviderContainer container,
+  String trackerId,
+) {
+  return container.listen<AsyncValue<List<double>>>(
+    trackerOverviewProvider(trackerId),
+    (previous, next) {},
+  );
+}
+
 void main() {
   group('trackerOverviewProvider', () {
     test('returns a 28-day ordered history with zeros for missing dates', () async {
@@ -137,6 +147,8 @@ void main() {
       ]);
       final container = _buildContainer(repository);
       addTearDown(container.dispose);
+      final sub = _keepOverviewAlive(container, 'tracker-1');
+      addTearDown(sub.close);
 
       final history = await container.read(
         trackerOverviewProvider('tracker-1').future,
@@ -156,6 +168,8 @@ void main() {
       final repository = _RecordingEntryRepository([]);
       final container = _buildContainer(repository);
       addTearDown(container.dispose);
+      final sub = _keepOverviewAlive(container, 'tracker-1');
+      addTearDown(sub.close);
 
       final history = await container.read(
         trackerOverviewProvider('tracker-1').future,

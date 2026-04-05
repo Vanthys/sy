@@ -106,6 +106,16 @@ ProviderContainer _buildContainer(_StatsEntryRepository repository) {
   );
 }
 
+ProviderSubscription<AsyncValue<TrackerStats>> _keepStatsAlive(
+  ProviderContainer container,
+  Tracker tracker,
+) {
+  return container.listen<AsyncValue<TrackerStats>>(
+    trackerStatsProvider(tracker),
+    (previous, next) {},
+  );
+}
+
 void main() {
   group('trackerStatsProvider', () {
     test('calculates continued-tracker aggregates and longest streak dates', () async {
@@ -158,6 +168,8 @@ void main() {
       ]);
       final container = _buildContainer(repository);
       addTearDown(container.dispose);
+      final sub = _keepStatsAlive(container, tracker);
+      addTearDown(sub.close);
 
       final stats = await container.read(trackerStatsProvider(tracker).future);
 
@@ -201,6 +213,8 @@ void main() {
       ]);
       final container = _buildContainer(repository);
       addTearDown(container.dispose);
+      final sub = _keepStatsAlive(container, tracker);
+      addTearDown(sub.close);
 
       final stats = await container.read(trackerStatsProvider(tracker).future);
 
@@ -227,6 +241,8 @@ void main() {
       final repository = _StatsEntryRepository([]);
       final container = _buildContainer(repository);
       addTearDown(container.dispose);
+      final sub = _keepStatsAlive(container, tracker);
+      addTearDown(sub.close);
 
       final stats = await container.read(trackerStatsProvider(tracker).future);
 
