@@ -372,17 +372,21 @@ class TrackerCalendarNotifier extends ChangeNotifier {
     );
 
     if (index != -1) {
-      final old = _entries[index];
-      _entries[index] = Entry(
-        id: old.id,
-        tracker: old.tracker,
-        date: old.date,
-        quantity: amount,
-        comment: old.comment,
-        createdAt: old.createdAt,
-        updatedAt: now,
-      );
-    } else {
+      if (amount > 0) {
+        final old = _entries[index];
+        _entries[index] = Entry(
+          id: old.id,
+          tracker: old.tracker,
+          date: old.date,
+          quantity: amount,
+          comment: old.comment,
+          createdAt: old.createdAt,
+          updatedAt: now,
+        );
+      } else {
+        _entries.removeAt(index);
+      }
+    } else if (amount > 0) {
       _entries.add(
         Entry(
           id: -1,

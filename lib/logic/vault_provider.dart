@@ -25,19 +25,23 @@ class VaultState {
 
   VaultState copyWith({
     PrivacyLevel? unlockedLevel,
-    enc.Key? activeKey,
+    Object? activeKey = _noActiveKeyChange,
     bool? isBiometricsEnabled,
     bool? isScreenProtectionEnabled,
   }) {
     return VaultState(
       unlockedLevel: unlockedLevel ?? this.unlockedLevel,
-      activeKey: activeKey ?? this.activeKey,
+      activeKey: identical(activeKey, _noActiveKeyChange)
+          ? this.activeKey
+          : activeKey as enc.Key?,
       isBiometricsEnabled: isBiometricsEnabled ?? this.isBiometricsEnabled,
       isScreenProtectionEnabled:
           isScreenProtectionEnabled ?? this.isScreenProtectionEnabled,
     );
   }
 }
+
+const Object _noActiveKeyChange = Object();
 
 class VaultNotifier extends StateNotifier<VaultState> {
   VaultNotifier() : super(VaultState()) {
