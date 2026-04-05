@@ -15,12 +15,15 @@ class ConsistencyMatrixChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final maxCount = stats.weekdayDistribution.values.fold(0, (max, v) => v > max ? v : max);
+    final maxCount = stats.weekdayDistribution.values.fold(
+      0,
+      (max, v) => v > max ? v : max,
+    );
 
     final dayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
     final barGroups = List.generate(7, (i) {
-      final val = (stats.weekdayDistribution[i+1] ?? 0).toDouble();
+      final val = (stats.weekdayDistribution[i + 1] ?? 0).toDouble();
       return BarChartGroupData(
         x: i,
         barRods: [
@@ -56,12 +59,15 @@ class ConsistencyMatrixChart extends StatelessWidget {
             touchTooltipData: BarTouchTooltipData(
               getTooltipColor: (group) => cs.inverseSurface,
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                 return BarTooltipItem(
-                   rod.toY.toInt().toString(),
-                   TextStyle(color: cs.onInverseSurface, fontWeight: FontWeight.bold)
-                 );
-              }
-            )
+                return BarTooltipItem(
+                  rod.toY.toInt().toString(),
+                  TextStyle(
+                    color: cs.onInverseSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+                );
+              },
+            ),
           ),
           titlesData: FlTitlesData(
             show: true,
@@ -77,7 +83,9 @@ class ConsistencyMatrixChart extends StatelessWidget {
                       text,
                       style: TextStyle(
                         color: isWeekend ? cs.onSurface : cs.onSurfaceVariant,
-                        fontWeight: isWeekend ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isWeekend
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                         fontSize: 12,
                       ),
                     ),
@@ -85,9 +93,15 @@ class ConsistencyMatrixChart extends StatelessWidget {
                 },
               ),
             ),
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
           ),
           gridData: const FlGridData(show: false),
           borderData: FlBorderData(show: false),

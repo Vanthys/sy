@@ -51,7 +51,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final isar = await ref.read(isarProvider.future);
       if (!mounted) return;
-      
+
       final dbPath = isar.path;
       if (dbPath == null) throw Exception('Isar path is null');
       final file = File(dbPath);
@@ -326,7 +326,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (_isVaultConfigured)
             SwitchListTile(
               title: const Text('Prevent Screenshots & App Switcher'),
-              subtitle: const Text('When the vault is unlocked, block the OS from taking screenshots or app switcher snapshots.'),
+              subtitle: const Text(
+                'When the vault is unlocked, block the OS from taking screenshots or app switcher snapshots.',
+              ),
               value: vaultState.isScreenProtectionEnabled,
               onChanged: (val) async {
                 final isAuthorized = await _verifyPinForAction(false);

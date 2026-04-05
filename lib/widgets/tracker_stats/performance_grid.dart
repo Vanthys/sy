@@ -25,10 +25,14 @@ class PerformanceGrid extends StatelessWidget {
       childAspectRatio: 1.5,
       children: [
         _StatCard(
-          label: tracker.streakType == StreakType.continued ? 'Total Active' : 'Total Lapses',
+          label: tracker.streakType == StreakType.continued
+              ? 'Total Active'
+              : 'Total Lapses',
           value: '${stats.totalActiveDays}',
           unit: 'days',
-          icon: tracker.streakType == StreakType.continued ? Icons.calendar_today : Icons.warning_amber_rounded,
+          icon: tracker.streakType == StreakType.continued
+              ? Icons.calendar_today
+              : Icons.warning_amber_rounded,
           color: accent,
         ),
         _StatCard(

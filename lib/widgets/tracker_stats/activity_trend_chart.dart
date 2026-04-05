@@ -27,8 +27,9 @@ class ActivityTrendChart extends StatelessWidget {
       );
     }
 
-    final isDiscrete = tracker.config.inputType == InputType.toggle || 
-                       tracker.config.inputType == InputType.choice;
+    final isDiscrete =
+        tracker.config.inputType == InputType.toggle ||
+        tracker.config.inputType == InputType.choice;
 
     return Container(
       height: 200,
@@ -39,13 +40,17 @@ class ActivityTrendChart extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: cs.outlineVariant, width: 1),
       ),
-      child: isDiscrete 
+      child: isDiscrete
           ? _buildDiscreteTrendChart(data, accent, cs)
           : _buildContinuousTrendChart(data, accent, cs),
     );
   }
 
-  Widget _buildDiscreteTrendChart(List<double> data, Color accent, ColorScheme cs) {
+  Widget _buildDiscreteTrendChart(
+    List<double> data,
+    Color accent,
+    ColorScheme cs,
+  ) {
     double maxVal = 0;
     for (final val in data) {
       if (val > maxVal) maxVal = val;
@@ -55,10 +60,16 @@ class ActivityTrendChart extends StatelessWidget {
     final barGroups = List.generate(data.length, (i) {
       final val = data[i];
       Color barColor = accent;
-      if (tracker.config.inputType == InputType.choice && tracker.config.optionColors?.isNotEmpty == true) {
+      if (tracker.config.inputType == InputType.choice &&
+          tracker.config.optionColors?.isNotEmpty == true) {
         final optionIndex = val.toInt() - 1;
-        if (optionIndex >= 0 && optionIndex < tracker.config.optionColors!.length) {
-          barColor = ColorUtils.parseHexColor(tracker.config.optionColors![optionIndex]) ?? accent;
+        if (optionIndex >= 0 &&
+            optionIndex < tracker.config.optionColors!.length) {
+          barColor =
+              ColorUtils.parseHexColor(
+                tracker.config.optionColors![optionIndex],
+              ) ??
+              accent;
         }
       } else if (val == 0) {
         barColor = cs.outlineVariant;
@@ -77,7 +88,7 @@ class ActivityTrendChart extends StatelessWidget {
               toY: maxVal,
               color: cs.surfaceContainerHighest,
             ),
-          )
+          ),
         ],
       );
     });
@@ -96,7 +107,9 @@ class ActivityTrendChart extends StatelessWidget {
                 label = rod.toY > 0 ? 'Done' : 'Skipped';
               } else if (tracker.config.inputType == InputType.choice) {
                 final idx = rod.toY.toInt() - 1;
-                if (tracker.config.options != null && idx >= 0 && idx < tracker.config.options!.length) {
+                if (tracker.config.options != null &&
+                    idx >= 0 &&
+                    idx < tracker.config.options!.length) {
                   label = tracker.config.options![idx];
                 } else if (rod.toY == 0) {
                   label = 'Skipped';
@@ -104,7 +117,10 @@ class ActivityTrendChart extends StatelessWidget {
               }
               return BarTooltipItem(
                 label,
-                TextStyle(color: cs.onInverseSurface, fontWeight: FontWeight.bold),
+                TextStyle(
+                  color: cs.onInverseSurface,
+                  fontWeight: FontWeight.bold,
+                ),
               );
             },
           ),
@@ -121,7 +137,11 @@ class ActivityTrendChart extends StatelessWidget {
     );
   }
 
-  Widget _buildContinuousTrendChart(List<double> data, Color accent, ColorScheme cs) {
+  Widget _buildContinuousTrendChart(
+    List<double> data,
+    Color accent,
+    ColorScheme cs,
+  ) {
     final spots = <FlSpot>[];
     double maxVal = 0;
     for (int i = 0; i < data.length; i++) {
@@ -141,11 +161,18 @@ class ActivityTrendChart extends StatelessWidget {
             getTooltipColor: (spot) => cs.inverseSurface,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
-                final valStr = spot.y % 1 == 0 ? spot.y.toInt().toString() : spot.y.toStringAsFixed(1);
-                final unitStr = tracker.config.unit != null ? ' ${tracker.config.unit}' : '';
+                final valStr = spot.y % 1 == 0
+                    ? spot.y.toInt().toString()
+                    : spot.y.toStringAsFixed(1);
+                final unitStr = tracker.config.unit != null
+                    ? ' ${tracker.config.unit}'
+                    : '';
                 return LineTooltipItem(
                   '$valStr$unitStr',
-                  TextStyle(color: cs.onInverseSurface, fontWeight: FontWeight.bold),
+                  TextStyle(
+                    color: cs.onInverseSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
                 );
               }).toList();
             },
@@ -177,7 +204,10 @@ class ActivityTrendChart extends StatelessWidget {
           drawVerticalLine: false,
           horizontalInterval: maxVal / 2 > 0 ? maxVal / 2 : 1,
           getDrawingHorizontalLine: (value) {
-            return FlLine(color: cs.outlineVariant.withValues(alpha: 0.5), strokeWidth: 1);
+            return FlLine(
+              color: cs.outlineVariant.withValues(alpha: 0.5),
+              strokeWidth: 1,
+            );
           },
         ),
         borderData: FlBorderData(show: false),

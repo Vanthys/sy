@@ -23,7 +23,8 @@ class TrackerStatsView extends ConsumerWidget {
     final historyAsync = ref.watch(trackerOverviewProvider(tracker.id));
     final cs = Theme.of(context).colorScheme;
 
-    final accent = (tracker.config.intensityColors?.isNotEmpty == true
+    final accent =
+        (tracker.config.intensityColors?.isNotEmpty == true
             ? ColorUtils.parseHexColor(tracker.config.intensityColors!.first)
             : null) ??
         (tracker.streakType == StreakType.continued ? cs.primary : cs.tertiary);

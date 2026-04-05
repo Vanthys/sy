@@ -101,18 +101,18 @@ class Tracker {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        title,
-        description,
-        streakType,
-        privacyLevel,
-        config,
-        currentStreak,
-        longestStreak,
-        createdAt,
-        updatedAt,
-        sortOrder,
-      );
+    id,
+    title,
+    description,
+    streakType,
+    privacyLevel,
+    config,
+    currentStreak,
+    longestStreak,
+    createdAt,
+    updatedAt,
+    sortOrder,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -152,13 +152,6 @@ class Entry {
           updatedAt == other.updatedAt;
 
   @override
-  int get hashCode => Object.hash(
-        id,
-        tracker,
-        date,
-        quantity,
-        comment,
-        createdAt,
-        updatedAt,
-      );
+  int get hashCode =>
+      Object.hash(id, tracker, date, quantity, comment, createdAt, updatedAt);
 }

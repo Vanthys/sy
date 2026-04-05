@@ -54,8 +54,9 @@ class TrackerRepository {
     }
 
     final decTitle = EncryptionUtils.decryptText(t.title, key);
-    final decDesc =
-        t.description != null ? EncryptionUtils.decryptText(t.description!, key) : null;
+    final decDesc = t.description != null
+        ? EncryptionUtils.decryptText(t.description!, key)
+        : null;
 
     if (decTitle == null) {
       return t.copyWith(
@@ -70,7 +71,9 @@ class TrackerRepository {
   String _encryptTextIfPrivate(String text, PrivacyLevel level) {
     if (level == PrivacyLevel.standard) return text;
     final key = vaultState.activeKey;
-    if (key == null) throw Exception('Cannot save private tracker: Vault is locked.');
+    if (key == null) {
+      throw Exception('Cannot save private tracker: Vault is locked.');
+    }
     return EncryptionUtils.encryptText(text, key);
   }
 
@@ -93,7 +96,9 @@ class TrackerRepository {
         .privacyLevelIndexLessThan(vaultState.unlockedLevel.index + 1)
         .sortBySortOrder()
         .watch(fireImmediately: true)
-        .map((list) => list.map((r) => _decryptTracker(r.toTracker())).toList());
+        .map(
+          (list) => list.map((r) => _decryptTracker(r.toTracker())).toList(),
+        );
   }
 
   Future<Tracker?> getTrackerById(String uuid) async {
@@ -114,7 +119,9 @@ class TrackerRepository {
   }) async {
     final now = DateTime.now();
     final encTitle = _encryptTextIfPrivate(title, privacyLevel);
-    final encDesc = description != null ? _encryptTextIfPrivate(description, privacyLevel) : null;
+    final encDesc = description != null
+        ? _encryptTextIfPrivate(description, privacyLevel)
+        : null;
 
     final row = IsarTracker()
       ..uuid = const Uuid().v4()
@@ -145,10 +152,15 @@ class TrackerRepository {
     final existing = await _trackers.filter().uuidEqualTo(uuid).findFirst();
     if (existing == null) return;
 
-    final targetLevel = privacyLevel ?? PrivacyLevel.values[existing.privacyLevelIndex];
+    final targetLevel =
+        privacyLevel ?? PrivacyLevel.values[existing.privacyLevelIndex];
 
-    if (title != null) existing.title = _encryptTextIfPrivate(title, targetLevel);
-    if (description != null) existing.description = _encryptTextIfPrivate(description, targetLevel);
+    if (title != null) {
+      existing.title = _encryptTextIfPrivate(title, targetLevel);
+    }
+    if (description != null) {
+      existing.description = _encryptTextIfPrivate(description, targetLevel);
+    }
     if (streakType != null) existing.streakTypeIndex = streakType.index;
     if (privacyLevel != null) existing.privacyLevelIndex = privacyLevel.index;
     if (config != null) existing.configJson = jsonEncode(config.toJson());
@@ -212,9 +224,16 @@ class TrackerRepository {
   // Vault re-key
   // ------------------------------------------------------------------
 
-  Future<void> rekeyVault(PrivacyLevel level, String oldPin, String newPin) async {
-    final rows = await _trackers.filter().privacyLevelIndexEqualTo(level.index).findAll();
-    
+  Future<void> rekeyVault(
+    PrivacyLevel level,
+    String oldPin,
+    String newPin,
+  ) async {
+    final rows = await _trackers
+        .filter()
+        .privacyLevelIndexEqualTo(level.index)
+        .findAll();
+
     final oldKey = EncryptionUtils.deriveKeyFromPin(oldPin);
     final newKey = EncryptionUtils.deriveKeyFromPin(newPin);
 
@@ -227,7 +246,9 @@ class TrackerRepository {
             : null;
 
         row.title = EncryptionUtils.encryptText(decTitle, newKey);
-        row.description = decDesc != null ? EncryptionUtils.encryptText(decDesc, newKey) : null;
+        row.description = decDesc != null
+            ? EncryptionUtils.encryptText(decDesc, newKey)
+            : null;
         row.updatedAt = DateTime.now();
         await _trackers.put(row);
       }
