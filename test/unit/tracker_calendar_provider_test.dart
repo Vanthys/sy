@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sy3/data/database.dart';
 import 'package:sy3/data/entry_repository.dart';
 import 'package:sy3/data/providers.dart';
 import 'package:sy3/data/tracker_config.dart';
 import 'package:sy3/logic/tracker_calendar_provider.dart';
+import 'package:sy3/services/shared_preferences_provider.dart';
 
 class _SaveCall {
   const _SaveCall({
@@ -20,7 +22,7 @@ class _SaveCall {
 }
 
 class _CalendarEntryRepository implements EntryRepository {
-  _CalendarEntryRepository(List<Entry> entries) : _entries = List.of(entries);
+  _CalendarEntryRepository(List<Entry> entries) : _entries = List<Entry>.of(entries);
 
   final List<Entry> _entries;
   final List<_SaveCall> saveCalls = [];
@@ -171,27 +173,43 @@ Tracker _tracker({
   );
 }
 
-ProviderContainer _buildContainer(_CalendarEntryRepository repository) {
+Future<ProviderContainer> _buildContainer(
+  _CalendarEntryRepository repository,
+) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+
   return ProviderContainer(
     overrides: [
+      sharedPreferencesProvider.overrideWith((ref) => prefs),
       entryRepositoryProvider.overrideWith((ref) async => repository),
     ],
   );
 }
 
-ProviderSubscription<TrackerCalendarNotifier> _watchNotifier(
+ProviderSubscription<CalendarState> _watchCalendar(
   ProviderContainer container,
   Tracker tracker,
 ) {
-  return container.listen<TrackerCalendarNotifier>(
+  return container.listen<CalendarState>(
     trackerCalendarProvider(tracker),
     (previous, next) {},
   );
 }
 
-Future<void> _waitForCalendarLoad(TrackerCalendarNotifier notifier) async {
+TrackerCalendarNotifier _readNotifier(
+  ProviderContainer container,
+  Tracker tracker,
+) {
+  return container.read(trackerCalendarProvider(tracker).notifier);
+}
+
+Future<void> _waitForCalendarLoad(
+  ProviderContainer container,
+  Tracker tracker,
+) async {
   for (var i = 0; i < 100; i++) {
-    if (!notifier.isLoading) {
+    if (!container.read(trackerCalendarProvider(tracker)).isLoading) {
       return;
     }
     await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -201,23 +219,31 @@ Future<void> _waitForCalendarLoad(TrackerCalendarNotifier notifier) async {
 }
 
 Future<void> _waitForMonths(
-  TrackerCalendarNotifier notifier,
+  ProviderContainer container,
+  Tracker tracker,
   int expectedCount,
 ) async {
   for (var i = 0; i < 100; i++) {
-    if (notifier.state.months.length == expectedCount) {
+    if (container.read(trackerCalendarProvider(tracker)).months.length ==
+        expectedCount) {
       return;
     }
     await Future<void>.delayed(const Duration(milliseconds: 10));
   }
 
-  fail('Expected $expectedCount months, found ${notifier.state.months.length}.');
+  final actual = container.read(trackerCalendarProvider(tracker)).months.length;
+  fail('Expected $expectedCount months, found $actual.');
 }
 
-DayData _findDay(TrackerCalendarNotifier notifier, DateTime date) {
+DayData _findDay(
+  ProviderContainer container,
+  Tracker tracker,
+  DateTime date,
+) {
   final normalized = DateTime(date.year, date.month, date.day);
+  final state = container.read(trackerCalendarProvider(tracker));
 
-  for (final month in notifier.state.months) {
+  for (final month in state.months) {
     for (final day in month.days) {
       if (day.date == normalized) {
         return day;
@@ -258,20 +284,19 @@ void main() {
         ),
         _entry(id: 3, trackerId: tracker.id, date: today, quantity: 2),
       ]);
-      final container = _buildContainer(repository);
+      final container = await _buildContainer(repository);
       addTearDown(container.dispose);
 
-      final subscription = _watchNotifier(container, tracker);
+      final subscription = _watchCalendar(container, tracker);
       addTearDown(subscription.close);
-      final notifier = subscription.read();
-      await _waitForCalendarLoad(notifier);
+      await _waitForCalendarLoad(container, tracker);
 
-      final todayData = _findDay(notifier, today);
-      final yesterdayData = _findDay(notifier, _dayFrom(today, -1));
-      final earlierEntryData = _findDay(notifier, _dayFrom(today, -3));
+      final todayData = _findDay(container, tracker, today);
+      final yesterdayData = _findDay(container, tracker, _dayFrom(today, -1));
+      final earlierEntryData = _findDay(container, tracker, _dayFrom(today, -3));
 
       expect(repository.watchedTrackerId, tracker.id);
-      expect(notifier.state.months, hasLength(6));
+      expect(container.read(trackerCalendarProvider(tracker)).months, hasLength(6));
       expect(todayData.inStreak, isTrue);
       expect(todayData.isStreakStart, isFalse);
       expect(todayData.isStreakEnd, isTrue);
@@ -301,18 +326,17 @@ void main() {
           quantity: 1,
         ),
       ]);
-      final container = _buildContainer(repository);
+      final container = await _buildContainer(repository);
       addTearDown(container.dispose);
 
-      final subscription = _watchNotifier(container, tracker);
+      final subscription = _watchCalendar(container, tracker);
       addTearDown(subscription.close);
-      final notifier = subscription.read();
-      await _waitForCalendarLoad(notifier);
+      await _waitForCalendarLoad(container, tracker);
 
-      final todayData = _findDay(notifier, today);
-      final yesterdayData = _findDay(notifier, _dayFrom(today, -1));
-      final twoDaysAgoData = _findDay(notifier, _dayFrom(today, -2));
-      final incidentData = _findDay(notifier, _dayFrom(today, -3));
+      final todayData = _findDay(container, tracker, today);
+      final yesterdayData = _findDay(container, tracker, _dayFrom(today, -1));
+      final twoDaysAgoData = _findDay(container, tracker, _dayFrom(today, -2));
+      final incidentData = _findDay(container, tracker, _dayFrom(today, -3));
 
       expect(todayData.inStreak, isTrue);
       expect(todayData.isStreakEnd, isTrue);
@@ -346,13 +370,13 @@ void main() {
           quantity: 2,
         ),
       ]);
-      final container = _buildContainer(repository);
+      final container = await _buildContainer(repository);
       addTearDown(container.dispose);
 
-      final subscription = _watchNotifier(container, tracker);
+      final subscription = _watchCalendar(container, tracker);
       addTearDown(subscription.close);
-      final notifier = subscription.read();
-      await _waitForCalendarLoad(notifier);
+      final notifier = _readNotifier(container, tracker);
+      await _waitForCalendarLoad(container, tracker);
 
       final initialEarliest = DateTime(today.year, today.month - 5, 1);
       final expectedNewStart = DateTime(
@@ -362,7 +386,7 @@ void main() {
       );
 
       await notifier.loadMorePastMonths();
-      await _waitForMonths(notifier, 12);
+      await _waitForMonths(container, tracker, 12);
 
       expect(repository.fetchedTrackerId, tracker.id);
       expect(repository.fetchedFrom, expectedNewStart);
@@ -371,8 +395,9 @@ void main() {
         initialEarliest.add(const Duration(days: 1)),
       );
       expect(repository.watchedFrom, expectedNewStart);
-      expect(notifier.state.isLoadingMore, isFalse);
-      expect(notifier.state.months, hasLength(12));
+      final state = container.read(trackerCalendarProvider(tracker));
+      expect(state.isLoadingMore, isFalse);
+      expect(state.months, hasLength(12));
     });
 
     test('saveEntry with zero on an empty day does not create a phantom entry', () async {
@@ -386,17 +411,17 @@ void main() {
         config: const TrackerConfig(inputType: InputType.number, unit: 'km'),
       );
       final repository = _CalendarEntryRepository([]);
-      final container = _buildContainer(repository);
+      final container = await _buildContainer(repository);
       addTearDown(container.dispose);
 
-      final subscription = _watchNotifier(container, tracker);
+      final subscription = _watchCalendar(container, tracker);
       addTearDown(subscription.close);
-      final notifier = subscription.read();
-      await _waitForCalendarLoad(notifier);
+      final notifier = _readNotifier(container, tracker);
+      await _waitForCalendarLoad(container, tracker);
 
       await notifier.saveEntry(targetDate, 0);
 
-      final dayData = _findDay(notifier, targetDate);
+      final dayData = _findDay(container, tracker, targetDate);
 
       expect(dayData.entry, isNull);
       expect(dayData.amount, 0);

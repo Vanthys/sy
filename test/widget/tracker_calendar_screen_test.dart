@@ -10,6 +10,7 @@ import 'package:sy3/logic/tracker_overview_provider.dart';
 import 'package:sy3/logic/tracker_stats_provider.dart';
 import 'package:sy3/logic/vault_provider.dart';
 import 'package:sy3/screens/tracker_calendar_screen.dart';
+import 'package:sy3/services/shared_preferences_provider.dart';
 
 class _FakeEntryRepository implements EntryRepository {
   @override
@@ -46,7 +47,15 @@ class _FakeEntryRepository implements EntryRepository {
 }
 
 class _TestVaultNotifier extends VaultNotifier {
+  _TestVaultNotifier(this._testState);
+
+  VaultState _testState;
+
+  @override
+  VaultState build() => _testState;
+
   void setStateForTest(VaultState newState) {
+    _testState = newState;
     state = newState;
   }
 }
@@ -82,14 +91,18 @@ TrackerStats _buildStats() {
   );
 }
 
-Widget _buildApp({
+Future<Widget> _buildApp({
   required Tracker tracker,
   required _TestVaultNotifier vaultNotifier,
-}) {
+}) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+
   return ProviderScope(
     overrides: [
+      sharedPreferencesProvider.overrideWith((ref) => prefs),
       entryRepositoryProvider.overrideWith((ref) async => _FakeEntryRepository()),
-      vaultProvider.overrideWith((ref) => vaultNotifier),
+      vaultProvider.overrideWith(() => vaultNotifier),
       trackerStatsProvider.overrideWith((ref, tracker) async* {
         yield _buildStats();
       }),
@@ -123,21 +136,16 @@ Widget _buildApp({
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
-  });
-
   group('TrackerCalendarScreen', () {
     testWidgets('shows privacy icon and toggles between calendar and statistics', (
       tester,
     ) async {
-      final vaultNotifier = _TestVaultNotifier()
-        ..setStateForTest(
-          VaultState(unlockedLevel: PrivacyLevel.vault),
-        );
+      final vaultNotifier = _TestVaultNotifier(
+        VaultState(unlockedLevel: PrivacyLevel.vault),
+      );
 
       await tester.pumpWidget(
-        _buildApp(
+        await _buildApp(
           tracker: _buildTracker(
             privacyLevel: PrivacyLevel.vault,
             title: 'Private Tracker',
@@ -165,13 +173,12 @@ void main() {
     testWidgets('pops back to previous route when vault locks on a private tracker', (
       tester,
     ) async {
-      final vaultNotifier = _TestVaultNotifier()
-        ..setStateForTest(
-          VaultState(unlockedLevel: PrivacyLevel.vault),
-        );
+      final vaultNotifier = _TestVaultNotifier(
+        VaultState(unlockedLevel: PrivacyLevel.vault),
+      );
 
       await tester.pumpWidget(
-        _buildApp(
+        await _buildApp(
           tracker: _buildTracker(
             privacyLevel: PrivacyLevel.vault,
             title: 'Private Tracker',
@@ -194,13 +201,12 @@ void main() {
     testWidgets('stays on screen when vault locks for a standard tracker', (
       tester,
     ) async {
-      final vaultNotifier = _TestVaultNotifier()
-        ..setStateForTest(
-          VaultState(unlockedLevel: PrivacyLevel.vault),
-        );
+      final vaultNotifier = _TestVaultNotifier(
+        VaultState(unlockedLevel: PrivacyLevel.vault),
+      );
 
       await tester.pumpWidget(
-        _buildApp(
+        await _buildApp(
           tracker: _buildTracker(title: 'Public Tracker'),
           vaultNotifier: vaultNotifier,
         ),

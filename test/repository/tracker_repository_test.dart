@@ -8,7 +8,7 @@ import 'package:sy3/data/schemas/entry_schema.dart';
 import 'package:sy3/data/database.dart';
 import 'package:sy3/data/tracker_config.dart';
 import 'package:sy3/data/tracker_repository.dart';
-import 'package:sy3/logic/vault_provider.dart';
+import 'package:sy3/data/vault_access.dart';
 import 'package:sy3/utils/encryption_utils.dart';
 import '../helpers/isar_test_helper.dart';
 
@@ -25,14 +25,14 @@ Future<Isar> _openIsar() async {
   );
 }
 
-/// A minimal unlocked [VaultState] with no active key (standard privacy only).
-VaultState get _unlockedVault => VaultState();
+/// A minimal unlocked [VaultAccess] with no active key (standard privacy only).
+VaultAccess get _unlockedVault => const VaultAccess();
 
-VaultState _vaultState({
+VaultAccess _vaultState({
   PrivacyLevel unlockedLevel = PrivacyLevel.standard,
   String? pin,
 }) {
-  return VaultState(
+  return VaultAccess(
     unlockedLevel: unlockedLevel,
     activeKey: pin != null ? EncryptionUtils.deriveKeyFromPin(pin) : null,
   );

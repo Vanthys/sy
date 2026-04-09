@@ -10,9 +10,10 @@ import '/data/tracker_config.dart';
 import '/data/streak_logic.dart';
 
 class EntryRepository {
-  final Isar _isar;
+  EntryRepository(this._isar, this._prefs);
 
-  EntryRepository(this._isar);
+  final Isar _isar;
+  final SharedPreferences _prefs;
 
   // shorthand collections
   IsarCollection<IsarEntry> get _entries => _isar.collection<IsarEntry>();
@@ -167,8 +168,7 @@ class EntryRepository {
 
   Future<void> refreshAllStreaks({bool force = false}) async {
     if (!force) {
-      final prefs = await SharedPreferences.getInstance();
-      final lastRefresh = prefs.getString('last_streak_refresh_date');
+      final lastRefresh = _prefs.getString('last_streak_refresh_date');
       final todayStr = DateTime.now().toIso8601String().split('T').first;
       if (lastRefresh == todayStr) return;
     }
@@ -206,9 +206,8 @@ class EntryRepository {
       await _trackers.putAll(toPut);
     });
 
-    final prefs = await SharedPreferences.getInstance();
     final todayStr = DateTime.now().toIso8601String().split('T').first;
-    await prefs.setString('last_streak_refresh_date', todayStr);
+    await _prefs.setString('last_streak_refresh_date', todayStr);
   }
 }
 

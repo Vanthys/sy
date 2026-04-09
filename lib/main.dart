@@ -19,7 +19,7 @@ void main() async {
 
   runApp(
     ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      overrides: [sharedPreferencesProvider.overrideWith((ref) => prefs)],
       child: const SyApp(),
     ),
   );

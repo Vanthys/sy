@@ -1,17 +1,17 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart' show Provider;
-import 'package:flutter_riverpod/legacy.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
+
+import '../services/theme_preferences_service.dart';
+export '../services/shared_preferences_provider.dart' show sharedPreferencesProvider;
+
+part 'theme_provider.g.dart';
 
 enum AppThemeMode { light, dark, system, amoled }
 
-class ThemeNotifier extends StateNotifier<AppThemeMode> {
-  ThemeNotifier(this._prefs) : super(_loadTheme(_prefs));
-
-  final SharedPreferences _prefs;
-  static const _themeKey = 'app_theme_mode';
-
-  static AppThemeMode _loadTheme(SharedPreferences prefs) {
-    final val = prefs.getString(_themeKey);
+@Riverpod(keepAlive: true)
+class ThemeNotifier extends _$ThemeNotifier {
+  @override
+  AppThemeMode build() {
+    final val = ref.watch(themePreferencesServiceProvider).loadThemeName();
     return AppThemeMode.values.firstWhere(
       (e) => e.name == val,
       orElse: () => AppThemeMode.system,
@@ -20,19 +20,6 @@ class ThemeNotifier extends StateNotifier<AppThemeMode> {
 
   Future<void> setTheme(AppThemeMode mode) async {
     state = mode;
-    await _prefs.setString(_themeKey, mode.name);
+    await ref.read(themePreferencesServiceProvider).setThemeName(mode.name);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Providers
-// ---------------------------------------------------------------------------
-
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('Initialize shared_preferences before app start');
-});
-
-final themeProvider = StateNotifierProvider<ThemeNotifier, AppThemeMode>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return ThemeNotifier(prefs);
-});
