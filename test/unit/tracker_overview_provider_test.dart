@@ -36,7 +36,8 @@ class _RecordingEntryRepository implements EntryRepository {
   ) => throw UnimplementedError();
 
   @override
-  Future<List<Entry>> loadEntries(String trackerId) => throw UnimplementedError();
+  Future<List<Entry>> loadEntries(String trackerId) =>
+      throw UnimplementedError();
 
   @override
   Future<void> refreshAllStreaks({bool force = false}) =>
@@ -108,61 +109,54 @@ ProviderSubscription<AsyncValue<List<double>>> _keepOverviewAlive(
 
 void main() {
   group('trackerOverviewProvider', () {
-    test('returns a 28-day ordered history with zeros for missing dates', () async {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final start = _dayFrom(today, -(historyDays - 1));
+    test(
+      'returns a 28-day ordered history with zeros for missing dates',
+      () async {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final start = _dayFrom(today, -(historyDays - 1));
 
-      final repository = _RecordingEntryRepository([
-        _entry(
-          id: 1,
-          trackerId: 'tracker-1',
-          date: _dayFrom(today, 1),
-          quantity: 99,
-        ),
-        _entry(
-          id: 2,
-          trackerId: 'tracker-1',
-          date: _dayFrom(today, -10),
-          quantity: 4,
-        ),
-        _entry(
-          id: 3,
-          trackerId: 'tracker-1',
-          date: start,
-          quantity: 2,
-        ),
-        _entry(
-          id: 4,
-          trackerId: 'tracker-1',
-          date: today,
-          quantity: 7,
-        ),
-        _entry(
-          id: 5,
-          trackerId: 'tracker-1',
-          date: _dayFrom(start, -1),
-          quantity: 88,
-        ),
-      ]);
-      final container = _buildContainer(repository);
-      addTearDown(container.dispose);
-      final sub = _keepOverviewAlive(container, 'tracker-1');
-      addTearDown(sub.close);
+        final repository = _RecordingEntryRepository([
+          _entry(
+            id: 1,
+            trackerId: 'tracker-1',
+            date: _dayFrom(today, 1),
+            quantity: 99,
+          ),
+          _entry(
+            id: 2,
+            trackerId: 'tracker-1',
+            date: _dayFrom(today, -10),
+            quantity: 4,
+          ),
+          _entry(id: 3, trackerId: 'tracker-1', date: start, quantity: 2),
+          _entry(id: 4, trackerId: 'tracker-1', date: today, quantity: 7),
+          _entry(
+            id: 5,
+            trackerId: 'tracker-1',
+            date: _dayFrom(start, -1),
+            quantity: 88,
+          ),
+        ]);
+        final container = _buildContainer(repository);
+        addTearDown(container.dispose);
+        final sub = _keepOverviewAlive(container, 'tracker-1');
+        addTearDown(sub.close);
 
-      final history = await container.read(
-        trackerOverviewProvider('tracker-1').future,
-      );
+        final history = await container.read(
+          trackerOverviewProvider('tracker-1').future,
+        );
 
-      expect(repository.requestedTrackerId, 'tracker-1');
-      expect(repository.requestedStart, start);
-      expect(repository.requestedEnd, today);
-      expect(history, hasLength(historyDays));
-      expect(history.first, 2);
-      expect(history[_historyIndex(start, _dayFrom(today, -10))], 4);
-      expect(history.last, 7);
-      expect(history[1], 0);
-    });
+        expect(repository.requestedTrackerId, 'tracker-1');
+        expect(repository.requestedStart, start);
+        expect(repository.requestedEnd, today);
+        expect(history, hasLength(historyDays));
+        expect(history.first, 2);
+        expect(history[_historyIndex(start, _dayFrom(today, -10))], 4);
+        expect(history.last, 7);
+        expect(history[1], 0);
+      },
+    );
 
     test('returns zeros for the full range when no entries exist', () async {
       final repository = _RecordingEntryRepository([]);

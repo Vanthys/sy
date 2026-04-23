@@ -159,11 +159,13 @@ class VaultNotifier extends _$VaultNotifier {
     // because the user will not provide the PIN when unlocking via face/touch.
     final aesKey = EncryptionUtils.deriveKeyFromPin(newPin);
 
-    await ref.read(vaultStorageServiceProvider).writeGeneralPin(
-      hashBase64: hashBase64,
-      saltBase64: saltBase64,
-      encryptionKeyBase64: aesKey.base64,
-    );
+    await ref
+        .read(vaultStorageServiceProvider)
+        .writeGeneralPin(
+          hashBase64: hashBase64,
+          saltBase64: saltBase64,
+          encryptionKeyBase64: aesKey.base64,
+        );
   }
 
   Future<void> setSecretPin(String newPin) async {
@@ -171,10 +173,9 @@ class VaultNotifier extends _$VaultNotifier {
     final saltBase64 = enc.IV(Uint8List.fromList(saltBytes)).base64;
     final hashBase64 = await EncryptionUtils.hashPinPbkdf2(newPin, saltBytes);
 
-    await ref.read(vaultStorageServiceProvider).writeSecretPin(
-      hashBase64: hashBase64,
-      saltBase64: saltBase64,
-    );
+    await ref
+        .read(vaultStorageServiceProvider)
+        .writeSecretPin(hashBase64: hashBase64, saltBase64: saltBase64);
     // Note: We DO NOT store the raw AES key for the secret vault to maintain extreme privacy.
   }
 

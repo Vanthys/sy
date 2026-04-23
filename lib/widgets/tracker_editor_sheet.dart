@@ -210,7 +210,10 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
     final cs = Theme.of(context).colorScheme;
 
     // Eject user if vault locks and we are dealing with a sensitive tracker
-    ref.listen<VaultState>(vaultProvider, (VaultState? previous, VaultState next) {
+    ref.listen<VaultState>(vaultProvider, (
+      VaultState? previous,
+      VaultState next,
+    ) {
       final wasUnlocked = previous?.isVaultUnlocked ?? false;
       final isUnlocked = next.isVaultUnlocked;
 

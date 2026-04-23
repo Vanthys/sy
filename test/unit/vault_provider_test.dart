@@ -41,9 +41,7 @@ Future<ProviderContainer> _createContainer({
   );
   final sharedPrefs = await SharedPreferences.getInstance();
   final container = ProviderContainer(
-    overrides: [
-      sharedPreferencesProvider.overrideWith((ref) => sharedPrefs),
-    ],
+    overrides: [sharedPreferencesProvider.overrideWith((ref) => sharedPrefs)],
   );
   addTearDown(container.dispose);
   return container;
@@ -88,152 +86,190 @@ void main() {
   });
 
   group('VaultNotifier', () {
-    test('loads biometrics and screen protection preferences on init', () async {
-      final container = await _createContainer(
-        prefs: const {
-          'vault_biometrics_enabled': true,
-          'vault_screen_protection_enabled': true,
-        },
-      );
+    test(
+      'loads biometrics and screen protection preferences on init',
+      () async {
+        final container = await _createContainer(
+          prefs: const {
+            'vault_biometrics_enabled': true,
+            'vault_screen_protection_enabled': true,
+          },
+        );
 
-      final state = container.read(vaultProvider);
-      expect(state.isBiometricsEnabled, isTrue);
-      expect(state.isScreenProtectionEnabled, isTrue);
-      expect(state.unlockedLevel, PrivacyLevel.standard);
-      expect(state.activeKey, isNull);
-    });
+        final state = container.read(vaultProvider);
+        expect(state.isBiometricsEnabled, isTrue);
+        expect(state.isScreenProtectionEnabled, isTrue);
+        expect(state.unlockedLevel, PrivacyLevel.standard);
+        expect(state.activeKey, isNull);
+      },
+    );
 
-    test('setGeneralPin stores configuration and verifies the correct pin', () async {
-      final container = await _createContainer();
-      final notifier = container.read(vaultProvider.notifier);
+    test(
+      'setGeneralPin stores configuration and verifies the correct pin',
+      () async {
+        final container = await _createContainer();
+        final notifier = container.read(vaultProvider.notifier);
 
-      await notifier.setGeneralPin('2468');
+        await notifier.setGeneralPin('2468');
 
-      expect(await notifier.isVaultConfigured(), isTrue);
-      expect(await notifier.verifyGeneralPin('2468'), isTrue);
-      expect(await notifier.verifyGeneralPin('1357'), isFalse);
+        expect(await notifier.isVaultConfigured(), isTrue);
+        expect(await notifier.verifyGeneralPin('2468'), isTrue);
+        expect(await notifier.verifyGeneralPin('1357'), isFalse);
 
-      final stored = await const FlutterSecureStorage().readAll();
-      expect(stored['vault_general_hash'], isNotNull);
-      expect(stored['vault_general_salt'], isNotNull);
-      expect(stored['vault_general_enc_key'], isNotNull);
-    });
+        final stored = await const FlutterSecureStorage().readAll();
+        expect(stored['vault_general_hash'], isNotNull);
+        expect(stored['vault_general_salt'], isNotNull);
+        expect(stored['vault_general_enc_key'], isNotNull);
+      },
+    );
 
-    test('setSecretPin stores configuration and unlockVault prefers secret level', () async {
-      final container = await _createContainer();
-      final notifier = container.read(vaultProvider.notifier);
+    test(
+      'setSecretPin stores configuration and unlockVault prefers secret level',
+      () async {
+        final container = await _createContainer();
+        final notifier = container.read(vaultProvider.notifier);
 
-      await notifier.setGeneralPin('1111');
-      await notifier.setSecretPin('2222');
+        await notifier.setGeneralPin('1111');
+        await notifier.setSecretPin('2222');
 
-      expect(await notifier.isSecretVaultConfigured(), isTrue);
-      expect(await notifier.verifySecretPin('2222'), isTrue);
+        expect(await notifier.isSecretVaultConfigured(), isTrue);
+        expect(await notifier.verifySecretPin('2222'), isTrue);
 
-      final unlocked = await notifier.unlockVault('2222');
+        final unlocked = await notifier.unlockVault('2222');
 
-      expect(unlocked, isTrue);
-      expect(container.read(vaultProvider).unlockedLevel, PrivacyLevel.secret);
-      expect(
-        container.read(vaultProvider).activeKey!.base64,
-        EncryptionUtils.deriveKeyFromPin('2222').base64,
-      );
-      expect(screenProtectorCalls.last, 'preventScreenshotOff');
-    });
+        expect(unlocked, isTrue);
+        expect(
+          container.read(vaultProvider).unlockedLevel,
+          PrivacyLevel.secret,
+        );
+        expect(
+          container.read(vaultProvider).activeKey!.base64,
+          EncryptionUtils.deriveKeyFromPin('2222').base64,
+        );
+        expect(screenProtectorCalls.last, 'preventScreenshotOff');
+      },
+    );
 
-    test('unlockVault opens the general vault and wrong pins leave state locked', () async {
-      final container = await _createContainer();
-      final notifier = container.read(vaultProvider.notifier);
+    test(
+      'unlockVault opens the general vault and wrong pins leave state locked',
+      () async {
+        final container = await _createContainer();
+        final notifier = container.read(vaultProvider.notifier);
 
-      await notifier.setGeneralPin('1234');
+        await notifier.setGeneralPin('1234');
 
-      expect(await notifier.unlockVault('0000'), isFalse);
-      expect(container.read(vaultProvider).unlockedLevel, PrivacyLevel.standard);
-      expect(container.read(vaultProvider).activeKey, isNull);
+        expect(await notifier.unlockVault('0000'), isFalse);
+        expect(
+          container.read(vaultProvider).unlockedLevel,
+          PrivacyLevel.standard,
+        );
+        expect(container.read(vaultProvider).activeKey, isNull);
 
-      final unlocked = await notifier.unlockVault('1234');
+        final unlocked = await notifier.unlockVault('1234');
 
-      expect(unlocked, isTrue);
-      expect(container.read(vaultProvider).unlockedLevel, PrivacyLevel.vault);
-      expect(
-        container.read(vaultProvider).activeKey!.base64,
-        EncryptionUtils.deriveKeyFromPin('1234').base64,
-      );
-    });
+        expect(unlocked, isTrue);
+        expect(container.read(vaultProvider).unlockedLevel, PrivacyLevel.vault);
+        expect(
+          container.read(vaultProvider).activeKey!.base64,
+          EncryptionUtils.deriveKeyFromPin('1234').base64,
+        );
+      },
+    );
 
-    test('unlockVaultWithBiometrics unlocks vault when enabled and auth succeeds', () async {
-      final biometricKey = EncryptionUtils.deriveKeyFromPin('biometric-pin');
-      localAuthState.availableBiometrics = ['fingerprint'];
-      localAuthState.authenticateResult = true;
+    test(
+      'unlockVaultWithBiometrics unlocks vault when enabled and auth succeeds',
+      () async {
+        final biometricKey = EncryptionUtils.deriveKeyFromPin('biometric-pin');
+        localAuthState.availableBiometrics = ['fingerprint'];
+        localAuthState.authenticateResult = true;
 
-      final container = await _createContainer(
-        prefs: const {
-          'vault_biometrics_enabled': true,
-          'vault_screen_protection_enabled': true,
-        },
-        secureStorage: {
-          'vault_general_enc_key': biometricKey.base64,
-        },
-      );
-      final notifier = container.read(vaultProvider.notifier);
+        final container = await _createContainer(
+          prefs: const {
+            'vault_biometrics_enabled': true,
+            'vault_screen_protection_enabled': true,
+          },
+          secureStorage: {'vault_general_enc_key': biometricKey.base64},
+        );
+        final notifier = container.read(vaultProvider.notifier);
 
-      final unlocked = await notifier.unlockVaultWithBiometrics();
+        final unlocked = await notifier.unlockVaultWithBiometrics();
 
-      await _waitUntil(() => screenProtectorCalls.contains('preventScreenshotOn'));
+        await _waitUntil(
+          () => screenProtectorCalls.contains('preventScreenshotOn'),
+        );
 
-      expect(unlocked, isTrue);
-      expect(localAuthState.authenticateCalls, 1);
-      expect(container.read(vaultProvider).unlockedLevel, PrivacyLevel.vault);
-      expect(container.read(vaultProvider).activeKey!.base64, biometricKey.base64);
-      expect(screenProtectorCalls.last, 'preventScreenshotOn');
-    });
+        expect(unlocked, isTrue);
+        expect(localAuthState.authenticateCalls, 1);
+        expect(container.read(vaultProvider).unlockedLevel, PrivacyLevel.vault);
+        expect(
+          container.read(vaultProvider).activeKey!.base64,
+          biometricKey.base64,
+        );
+        expect(screenProtectorCalls.last, 'preventScreenshotOn');
+      },
+    );
 
-    test('unlockVaultWithBiometrics returns false when biometrics are disabled', () async {
-      localAuthState.availableBiometrics = ['fingerprint'];
-      localAuthState.authenticateResult = true;
+    test(
+      'unlockVaultWithBiometrics returns false when biometrics are disabled',
+      () async {
+        localAuthState.availableBiometrics = ['fingerprint'];
+        localAuthState.authenticateResult = true;
 
-      final container = await _createContainer();
-      final notifier = container.read(vaultProvider.notifier);
+        final container = await _createContainer();
+        final notifier = container.read(vaultProvider.notifier);
 
-      final unlocked = await notifier.unlockVaultWithBiometrics();
+        final unlocked = await notifier.unlockVaultWithBiometrics();
 
-      expect(unlocked, isFalse);
-      expect(localAuthState.authenticateCalls, 0);
-      expect(container.read(vaultProvider).unlockedLevel, PrivacyLevel.standard);
-    });
+        expect(unlocked, isFalse);
+        expect(localAuthState.authenticateCalls, 0);
+        expect(
+          container.read(vaultProvider).unlockedLevel,
+          PrivacyLevel.standard,
+        );
+      },
+    );
 
-    test('toggleScreenProtection persists the flag and lockVault clears access', () async {
-      final container = await _createContainer();
-      final notifier = container.read(vaultProvider.notifier);
+    test(
+      'toggleScreenProtection persists the flag and lockVault clears access',
+      () async {
+        final container = await _createContainer();
+        final notifier = container.read(vaultProvider.notifier);
 
-      await notifier.setGeneralPin('9876');
-      await notifier.unlockVault('9876');
-      screenProtectorCalls.clear();
+        await notifier.setGeneralPin('9876');
+        await notifier.unlockVault('9876');
+        screenProtectorCalls.clear();
 
-      await notifier.toggleScreenProtection(true);
-      await _waitUntil(() => screenProtectorCalls.contains('preventScreenshotOn'));
+        await notifier.toggleScreenProtection(true);
+        await _waitUntil(
+          () => screenProtectorCalls.contains('preventScreenshotOn'),
+        );
 
-      expect(container.read(vaultProvider).isScreenProtectionEnabled, isTrue);
-      expect(
-        (await SharedPreferences.getInstance()).getBool(
-          'vault_screen_protection_enabled',
-        ),
-        isTrue,
-      );
-      expect(screenProtectorCalls.last, 'preventScreenshotOn');
+        expect(container.read(vaultProvider).isScreenProtectionEnabled, isTrue);
+        expect(
+          (await SharedPreferences.getInstance()).getBool(
+            'vault_screen_protection_enabled',
+          ),
+          isTrue,
+        );
+        expect(screenProtectorCalls.last, 'preventScreenshotOn');
 
-      await notifier.lockVault();
-      await _waitUntil(
-        () =>
-            screenProtectorCalls.contains('preventScreenshotOff') &&
-            screenProtectorCalls.length >= 3,
-      );
+        await notifier.lockVault();
+        await _waitUntil(
+          () =>
+              screenProtectorCalls.contains('preventScreenshotOff') &&
+              screenProtectorCalls.length >= 3,
+        );
 
-      expect(container.read(vaultProvider).unlockedLevel, PrivacyLevel.standard);
-      expect(container.read(vaultProvider).activeKey, isNull);
-      expect(
-        screenProtectorCalls.sublist(screenProtectorCalls.length - 2),
-        ['preventScreenshotOn', 'preventScreenshotOff'],
-      );
-    });
+        expect(
+          container.read(vaultProvider).unlockedLevel,
+          PrivacyLevel.standard,
+        );
+        expect(container.read(vaultProvider).activeKey, isNull);
+        expect(screenProtectorCalls.sublist(screenProtectorCalls.length - 2), [
+          'preventScreenshotOn',
+          'preventScreenshotOff',
+        ]);
+      },
+    );
   });
 }

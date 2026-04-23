@@ -152,10 +152,7 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
 
   void _updateState() {
     final months = _generateMonthsData();
-    state = state.copyWith(
-      months: months,
-      isLoading: false,
-    );
+    state = state.copyWith(months: months, isLoading: false);
   }
 
   List<MonthData> _generateMonthsData() {
@@ -168,7 +165,10 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
         .where((entry) => entry.quantity.round() > 0)
         .toList();
     final entryDatesSet = meaningfulEntries
-        .map((entry) => DateTime(entry.date.year, entry.date.month, entry.date.day))
+        .map(
+          (entry) =>
+              DateTime(entry.date.year, entry.date.month, entry.date.day),
+        )
         .toSet();
 
     final today = DateTime.now();
@@ -182,7 +182,9 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
     );
 
     final sortedDays = entryDatesSet.toList()..sort();
-    final earliestEntry = sortedDays.isEmpty ? createdAtMidnight : sortedDays.first;
+    final earliestEntry = sortedDays.isEmpty
+        ? createdAtMidnight
+        : sortedDays.first;
     final trackingStartDay = earliestEntry.isBefore(createdAtMidnight)
         ? earliestEntry
         : createdAtMidnight;
@@ -257,7 +259,8 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
             : ColorUtils.getColorForAmount(
                 amount,
                 preParsedColors: _intensityColors,
-                maxValue: _tracker.config.intensityGoal ?? _tracker.config.maxValue,
+                maxValue:
+                    _tracker.config.intensityGoal ?? _tracker.config.maxValue,
               );
 
         var gradient = _streakColors;

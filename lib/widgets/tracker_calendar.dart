@@ -90,7 +90,9 @@ class _TrackerCalendarState extends ConsumerState<TrackerCalendar> {
                       );
                       if (result != null) {
                         await ref
-                            .read(trackerCalendarProvider(widget.tracker).notifier)
+                            .read(
+                              trackerCalendarProvider(widget.tracker).notifier,
+                            )
                             .saveEntry(dayData.date, result);
                       }
                     },

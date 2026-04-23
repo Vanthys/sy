@@ -29,7 +29,8 @@ class _StatsEntryRepository implements EntryRepository {
   ) => throw UnimplementedError();
 
   @override
-  Future<List<Entry>> loadEntries(String trackerId) => throw UnimplementedError();
+  Future<List<Entry>> loadEntries(String trackerId) =>
+      throw UnimplementedError();
 
   @override
   Future<void> refreshAllStreaks({bool force = false}) =>
@@ -118,143 +119,128 @@ ProviderSubscription<AsyncValue<TrackerStats>> _keepStatsAlive(
 
 void main() {
   group('trackerStatsProvider', () {
-    test('calculates continued-tracker aggregates and longest streak dates', () async {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final tracker = _tracker(
-        id: 'continued',
-        createdAt: _dayFrom(today, -5),
-        streakType: StreakType.continued,
-        currentStreak: 8,
-        longestStreak: 1,
-      );
-      final dates = [
-        _dayFrom(today, -5),
-        _dayFrom(today, -4),
-        _dayFrom(today, -2),
-        today,
-      ];
-      final repository = _StatsEntryRepository([
-        _entry(
-          id: 1,
-          trackerId: tracker.id,
-          date: dates[0],
-          quantity: 1,
-        ),
-        _entry(
-          id: 2,
-          trackerId: tracker.id,
-          date: dates[1],
-          quantity: 2,
-        ),
-        _entry(
-          id: 3,
-          trackerId: tracker.id,
-          date: dates[2],
-          quantity: 3,
-        ),
-        _entry(
-          id: 4,
-          trackerId: tracker.id,
-          date: dates[3],
-          quantity: 4,
-        ),
-        _entry(
-          id: 5,
-          trackerId: tracker.id,
-          date: _dayFrom(today, -1),
-          quantity: 0,
-        ),
-      ]);
-      final container = _buildContainer(repository);
-      addTearDown(container.dispose);
-      final sub = _keepStatsAlive(container, tracker);
-      addTearDown(sub.close);
+    test(
+      'calculates continued-tracker aggregates and longest streak dates',
+      () async {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final tracker = _tracker(
+          id: 'continued',
+          createdAt: _dayFrom(today, -5),
+          streakType: StreakType.continued,
+          currentStreak: 8,
+          longestStreak: 1,
+        );
+        final dates = [
+          _dayFrom(today, -5),
+          _dayFrom(today, -4),
+          _dayFrom(today, -2),
+          today,
+        ];
+        final repository = _StatsEntryRepository([
+          _entry(id: 1, trackerId: tracker.id, date: dates[0], quantity: 1),
+          _entry(id: 2, trackerId: tracker.id, date: dates[1], quantity: 2),
+          _entry(id: 3, trackerId: tracker.id, date: dates[2], quantity: 3),
+          _entry(id: 4, trackerId: tracker.id, date: dates[3], quantity: 4),
+          _entry(
+            id: 5,
+            trackerId: tracker.id,
+            date: _dayFrom(today, -1),
+            quantity: 0,
+          ),
+        ]);
+        final container = _buildContainer(repository);
+        addTearDown(container.dispose);
+        final sub = _keepStatsAlive(container, tracker);
+        addTearDown(sub.close);
 
-      final stats = await container.read(trackerStatsProvider(tracker).future);
+        final stats = await container.read(
+          trackerStatsProvider(tracker).future,
+        );
 
-      expect(repository.requestedTrackerId, tracker.id);
-      expect(stats.totalActiveDays, 4);
-      expect(stats.totalQuantity, 10);
-      expect(stats.completionRate, closeTo(4 / 6, 0.000001));
-      expect(stats.weekdayDistribution, _weekdayCounts(dates));
-      expect(stats.monthlyAverage, closeTo(10 / 30, 0.000001));
-      expect(stats.nextMilestone, 14);
-      expect(stats.currentStreak, 8);
-      expect(stats.longestStreak, 2);
-      expect(stats.longestStreakStart, dates[0]);
-      expect(stats.longestStreakEnd, dates[1]);
-    });
+        expect(repository.requestedTrackerId, tracker.id);
+        expect(stats.totalActiveDays, 4);
+        expect(stats.totalQuantity, 10);
+        expect(stats.completionRate, closeTo(4 / 6, 0.000001));
+        expect(stats.weekdayDistribution, _weekdayCounts(dates));
+        expect(stats.monthlyAverage, closeTo(10 / 30, 0.000001));
+        expect(stats.nextMilestone, 14);
+        expect(stats.currentStreak, 8);
+        expect(stats.longestStreak, 2);
+        expect(stats.longestStreakStart, dates[0]);
+        expect(stats.longestStreakEnd, dates[1]);
+      },
+    );
 
-    test('calculates abstinence stats and milestone fallback above 1000', () async {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final tracker = _tracker(
-        id: 'abstinence',
-        createdAt: _dayFrom(today, -4),
-        streakType: StreakType.abstinence,
-        currentStreak: 1001,
-        longestStreak: 1,
-      );
-      final dates = [_dayFrom(today, -3), today];
-      final repository = _StatsEntryRepository([
-        _entry(
-          id: 1,
-          trackerId: tracker.id,
-          date: dates[0],
-          quantity: 2.5,
-        ),
-        _entry(
-          id: 2,
-          trackerId: tracker.id,
-          date: dates[1],
-          quantity: 1,
-        ),
-      ]);
-      final container = _buildContainer(repository);
-      addTearDown(container.dispose);
-      final sub = _keepStatsAlive(container, tracker);
-      addTearDown(sub.close);
+    test(
+      'calculates abstinence stats and milestone fallback above 1000',
+      () async {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final tracker = _tracker(
+          id: 'abstinence',
+          createdAt: _dayFrom(today, -4),
+          streakType: StreakType.abstinence,
+          currentStreak: 1001,
+          longestStreak: 1,
+        );
+        final dates = [_dayFrom(today, -3), today];
+        final repository = _StatsEntryRepository([
+          _entry(id: 1, trackerId: tracker.id, date: dates[0], quantity: 2.5),
+          _entry(id: 2, trackerId: tracker.id, date: dates[1], quantity: 1),
+        ]);
+        final container = _buildContainer(repository);
+        addTearDown(container.dispose);
+        final sub = _keepStatsAlive(container, tracker);
+        addTearDown(sub.close);
 
-      final stats = await container.read(trackerStatsProvider(tracker).future);
+        final stats = await container.read(
+          trackerStatsProvider(tracker).future,
+        );
 
-      expect(stats.totalActiveDays, 2);
-      expect(stats.totalQuantity, 3.5);
-      expect(stats.completionRate, closeTo(3 / 5, 0.000001));
-      expect(stats.weekdayDistribution, _weekdayCounts(dates));
-      expect(stats.monthlyAverage, closeTo(3.5 / 30, 0.000001));
-      expect(stats.nextMilestone, 1100);
-      expect(stats.longestStreak, 2);
-      expect(stats.longestStreakStart, _dayFrom(today, -2));
-      expect(stats.longestStreakEnd, _dayFrom(today, -1));
-    });
+        expect(stats.totalActiveDays, 2);
+        expect(stats.totalQuantity, 3.5);
+        expect(stats.completionRate, closeTo(3 / 5, 0.000001));
+        expect(stats.weekdayDistribution, _weekdayCounts(dates));
+        expect(stats.monthlyAverage, closeTo(3.5 / 30, 0.000001));
+        expect(stats.nextMilestone, 1100);
+        expect(stats.longestStreak, 2);
+        expect(stats.longestStreakStart, _dayFrom(today, -2));
+        expect(stats.longestStreakEnd, _dayFrom(today, -1));
+      },
+    );
 
-    test('uses tracker creation date when a continued tracker has no entries', () async {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final tracker = _tracker(
-        id: 'empty',
-        createdAt: _dayFrom(today, -2),
-        streakType: StreakType.continued,
-        longestStreak: 4,
-      );
-      final repository = _StatsEntryRepository([]);
-      final container = _buildContainer(repository);
-      addTearDown(container.dispose);
-      final sub = _keepStatsAlive(container, tracker);
-      addTearDown(sub.close);
+    test(
+      'uses tracker creation date when a continued tracker has no entries',
+      () async {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final tracker = _tracker(
+          id: 'empty',
+          createdAt: _dayFrom(today, -2),
+          streakType: StreakType.continued,
+          longestStreak: 4,
+        );
+        final repository = _StatsEntryRepository([]);
+        final container = _buildContainer(repository);
+        addTearDown(container.dispose);
+        final sub = _keepStatsAlive(container, tracker);
+        addTearDown(sub.close);
 
-      final stats = await container.read(trackerStatsProvider(tracker).future);
+        final stats = await container.read(
+          trackerStatsProvider(tracker).future,
+        );
 
-      expect(stats.totalActiveDays, 0);
-      expect(stats.totalQuantity, 0);
-      expect(stats.completionRate, 0);
-      expect(stats.weekdayDistribution, _weekdayCounts(const []));
-      expect(stats.monthlyAverage, 0);
-      expect(stats.nextMilestone, 7);
-      expect(stats.longestStreak, 4);
-      expect(stats.longestStreakStart, isNull);
-      expect(stats.longestStreakEnd, isNull);
-    });
+        expect(stats.totalActiveDays, 0);
+        expect(stats.totalQuantity, 0);
+        expect(stats.completionRate, 0);
+        expect(stats.weekdayDistribution, _weekdayCounts(const []));
+        expect(stats.monthlyAverage, 0);
+        expect(stats.nextMilestone, 7);
+        expect(stats.longestStreak, 4);
+        expect(stats.longestStreakStart, isNull);
+        expect(stats.longestStreakEnd, isNull);
+      },
+    );
   });
 }

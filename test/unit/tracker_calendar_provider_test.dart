@@ -22,7 +22,8 @@ class _SaveCall {
 }
 
 class _CalendarEntryRepository implements EntryRepository {
-  _CalendarEntryRepository(List<Entry> entries) : _entries = List<Entry>.of(entries);
+  _CalendarEntryRepository(List<Entry> entries)
+    : _entries = List<Entry>.of(entries);
 
   final List<Entry> _entries;
   final List<_SaveCall> saveCalls = [];
@@ -122,7 +123,8 @@ class _CalendarEntryRepository implements EntryRepository {
   Future<void> deleteEntry(int id) => throw UnimplementedError();
 
   @override
-  Future<List<Entry>> loadEntries(String trackerId) => throw UnimplementedError();
+  Future<List<Entry>> loadEntries(String trackerId) =>
+      throw UnimplementedError();
 
   @override
   Future<void> refreshAllStreaks({bool force = false}) =>
@@ -235,11 +237,7 @@ Future<void> _waitForMonths(
   fail('Expected $expectedCount months, found $actual.');
 }
 
-DayData _findDay(
-  ProviderContainer container,
-  Tracker tracker,
-  DateTime date,
-) {
+DayData _findDay(ProviderContainer container, Tracker tracker, DateTime date) {
   final normalized = DateTime(date.year, date.month, date.day);
   final state = container.read(trackerCalendarProvider(tracker));
 
@@ -256,58 +254,68 @@ DayData _findDay(
 
 void main() {
   group('TrackerCalendarNotifier', () {
-    test('builds continued streak state and choice colors from entries', () async {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final tracker = _tracker(
-        id: 'continued',
-        streakType: StreakType.continued,
-        createdAt: _dayFrom(today, -5),
-        config: const TrackerConfig(
-          inputType: InputType.choice,
-          optionColors: ['#FF0000', '#00FF00', '#0000FF'],
-          streakColors: ['#123456', '#654321'],
-        ),
-      );
-      final repository = _CalendarEntryRepository([
-        _entry(
-          id: 1,
-          trackerId: tracker.id,
-          date: _dayFrom(today, -3),
-          quantity: 3,
-        ),
-        _entry(
-          id: 2,
-          trackerId: tracker.id,
-          date: _dayFrom(today, -1),
-          quantity: 1,
-        ),
-        _entry(id: 3, trackerId: tracker.id, date: today, quantity: 2),
-      ]);
-      final container = await _buildContainer(repository);
-      addTearDown(container.dispose);
+    test(
+      'builds continued streak state and choice colors from entries',
+      () async {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final tracker = _tracker(
+          id: 'continued',
+          streakType: StreakType.continued,
+          createdAt: _dayFrom(today, -5),
+          config: const TrackerConfig(
+            inputType: InputType.choice,
+            optionColors: ['#FF0000', '#00FF00', '#0000FF'],
+            streakColors: ['#123456', '#654321'],
+          ),
+        );
+        final repository = _CalendarEntryRepository([
+          _entry(
+            id: 1,
+            trackerId: tracker.id,
+            date: _dayFrom(today, -3),
+            quantity: 3,
+          ),
+          _entry(
+            id: 2,
+            trackerId: tracker.id,
+            date: _dayFrom(today, -1),
+            quantity: 1,
+          ),
+          _entry(id: 3, trackerId: tracker.id, date: today, quantity: 2),
+        ]);
+        final container = await _buildContainer(repository);
+        addTearDown(container.dispose);
 
-      final subscription = _watchCalendar(container, tracker);
-      addTearDown(subscription.close);
-      await _waitForCalendarLoad(container, tracker);
+        final subscription = _watchCalendar(container, tracker);
+        addTearDown(subscription.close);
+        await _waitForCalendarLoad(container, tracker);
 
-      final todayData = _findDay(container, tracker, today);
-      final yesterdayData = _findDay(container, tracker, _dayFrom(today, -1));
-      final earlierEntryData = _findDay(container, tracker, _dayFrom(today, -3));
+        final todayData = _findDay(container, tracker, today);
+        final yesterdayData = _findDay(container, tracker, _dayFrom(today, -1));
+        final earlierEntryData = _findDay(
+          container,
+          tracker,
+          _dayFrom(today, -3),
+        );
 
-      expect(repository.watchedTrackerId, tracker.id);
-      expect(container.read(trackerCalendarProvider(tracker)).months, hasLength(6));
-      expect(todayData.inStreak, isTrue);
-      expect(todayData.isStreakStart, isFalse);
-      expect(todayData.isStreakEnd, isTrue);
-      expect(todayData.color, const Color(0xFF00FF00));
-      expect(todayData.streakGradient, hasLength(3));
-      expect(yesterdayData.inStreak, isTrue);
-      expect(yesterdayData.isStreakStart, isTrue);
-      expect(yesterdayData.isStreakEnd, isFalse);
-      expect(yesterdayData.color, const Color(0xFFFF0000));
-      expect(earlierEntryData.inStreak, isFalse);
-    });
+        expect(repository.watchedTrackerId, tracker.id);
+        expect(
+          container.read(trackerCalendarProvider(tracker)).months,
+          hasLength(6),
+        );
+        expect(todayData.inStreak, isTrue);
+        expect(todayData.isStreakStart, isFalse);
+        expect(todayData.isStreakEnd, isTrue);
+        expect(todayData.color, const Color(0xFF00FF00));
+        expect(todayData.streakGradient, hasLength(3));
+        expect(yesterdayData.inStreak, isTrue);
+        expect(yesterdayData.isStreakStart, isTrue);
+        expect(yesterdayData.isStreakEnd, isFalse);
+        expect(yesterdayData.color, const Color(0xFFFF0000));
+        expect(earlierEntryData.inStreak, isFalse);
+      },
+    );
 
     test('treats empty abstinence days as the active streak', () async {
       final now = DateTime.now();
@@ -347,88 +355,94 @@ void main() {
       expect(todayData.color, Colors.transparent);
     });
 
-    test('loadMorePastMonths fetches an older batch and extends month state', () async {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final tracker = _tracker(
-        id: 'loader',
-        streakType: StreakType.continued,
-        createdAt: _dayFrom(today, -20),
-        config: const TrackerConfig(),
-      );
-      final repository = _CalendarEntryRepository([
-        _entry(
-          id: 1,
-          trackerId: tracker.id,
-          date: _dayFrom(today, -10),
-          quantity: 4,
-        ),
-        _entry(
-          id: 2,
-          trackerId: tracker.id,
-          date: DateTime(today.year, today.month - 8, 15),
-          quantity: 2,
-        ),
-      ]);
-      final container = await _buildContainer(repository);
-      addTearDown(container.dispose);
+    test(
+      'loadMorePastMonths fetches an older batch and extends month state',
+      () async {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final tracker = _tracker(
+          id: 'loader',
+          streakType: StreakType.continued,
+          createdAt: _dayFrom(today, -20),
+          config: const TrackerConfig(),
+        );
+        final repository = _CalendarEntryRepository([
+          _entry(
+            id: 1,
+            trackerId: tracker.id,
+            date: _dayFrom(today, -10),
+            quantity: 4,
+          ),
+          _entry(
+            id: 2,
+            trackerId: tracker.id,
+            date: DateTime(today.year, today.month - 8, 15),
+            quantity: 2,
+          ),
+        ]);
+        final container = await _buildContainer(repository);
+        addTearDown(container.dispose);
 
-      final subscription = _watchCalendar(container, tracker);
-      addTearDown(subscription.close);
-      final notifier = _readNotifier(container, tracker);
-      await _waitForCalendarLoad(container, tracker);
+        final subscription = _watchCalendar(container, tracker);
+        addTearDown(subscription.close);
+        final notifier = _readNotifier(container, tracker);
+        await _waitForCalendarLoad(container, tracker);
 
-      final initialEarliest = DateTime(today.year, today.month - 5, 1);
-      final expectedNewStart = DateTime(
-        initialEarliest.year,
-        initialEarliest.month - 6,
-        1,
-      );
+        final initialEarliest = DateTime(today.year, today.month - 5, 1);
+        final expectedNewStart = DateTime(
+          initialEarliest.year,
+          initialEarliest.month - 6,
+          1,
+        );
 
-      await notifier.loadMorePastMonths();
-      await _waitForMonths(container, tracker, 12);
+        await notifier.loadMorePastMonths();
+        await _waitForMonths(container, tracker, 12);
 
-      expect(repository.fetchedTrackerId, tracker.id);
-      expect(repository.fetchedFrom, expectedNewStart);
-      expect(
-        repository.fetchedTo,
-        initialEarliest.add(const Duration(days: 1)),
-      );
-      expect(repository.watchedFrom, expectedNewStart);
-      final state = container.read(trackerCalendarProvider(tracker));
-      expect(state.isLoadingMore, isFalse);
-      expect(state.months, hasLength(12));
-    });
+        expect(repository.fetchedTrackerId, tracker.id);
+        expect(repository.fetchedFrom, expectedNewStart);
+        expect(
+          repository.fetchedTo,
+          initialEarliest.add(const Duration(days: 1)),
+        );
+        expect(repository.watchedFrom, expectedNewStart);
+        final state = container.read(trackerCalendarProvider(tracker));
+        expect(state.isLoadingMore, isFalse);
+        expect(state.months, hasLength(12));
+      },
+    );
 
-    test('saveEntry with zero on an empty day does not create a phantom entry', () async {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final targetDate = _dayFrom(today, -1);
-      final tracker = _tracker(
-        id: 'save-zero',
-        streakType: StreakType.continued,
-        createdAt: _dayFrom(today, -7),
-        config: const TrackerConfig(inputType: InputType.number, unit: 'km'),
-      );
-      final repository = _CalendarEntryRepository([]);
-      final container = await _buildContainer(repository);
-      addTearDown(container.dispose);
+    test(
+      'saveEntry with zero on an empty day does not create a phantom entry',
+      () async {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final targetDate = _dayFrom(today, -1);
+        final tracker = _tracker(
+          id: 'save-zero',
+          streakType: StreakType.continued,
+          createdAt: _dayFrom(today, -7),
+          config: const TrackerConfig(inputType: InputType.number, unit: 'km'),
+        );
+        final repository = _CalendarEntryRepository([]);
+        final container = await _buildContainer(repository);
+        addTearDown(container.dispose);
 
-      final subscription = _watchCalendar(container, tracker);
-      addTearDown(subscription.close);
-      final notifier = _readNotifier(container, tracker);
-      await _waitForCalendarLoad(container, tracker);
+        final subscription = _watchCalendar(container, tracker);
+        addTearDown(subscription.close);
+        final notifier = _readNotifier(container, tracker);
+        await _waitForCalendarLoad(container, tracker);
 
-      await notifier.saveEntry(targetDate, 0);
+        await notifier.saveEntry(targetDate, 0);
 
-      final dayData = _findDay(container, tracker, targetDate);
+        final dayData = _findDay(container, tracker, targetDate);
 
-      expect(dayData.entry, isNull);
-      expect(dayData.amount, 0);
-      expect(repository.saveCalls, hasLength(1));
-      expect(repository.saveCalls.single.trackerId, tracker.id);
-      expect(repository.saveCalls.single.date, targetDate);
-      expect(repository.saveCalls.single.amount, 0);
-    });
+        expect(dayData.entry, isNull);
+        expect(dayData.amount, 0);
+        expect(repository.saveCalls, hasLength(1));
+        expect(repository.saveCalls.single.trackerId, tracker.id);
+        expect(repository.saveCalls.single.date, targetDate);
+        expect(repository.saveCalls.single.amount, 0);
+      },
+    );
   });
 }

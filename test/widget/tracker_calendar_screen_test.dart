@@ -30,7 +30,11 @@ class _FakeEntryRepository implements EntryRepository {
   Future<void> refreshAllStreaks({bool force = false}) async {}
 
   @override
-  Future<void> saveEntry(String trackerId, DateTime date, double amount) async {}
+  Future<void> saveEntry(
+    String trackerId,
+    DateTime date,
+    double amount,
+  ) async {}
 
   @override
   Future<void> updateTrackerStreaks(String trackerId) async {}
@@ -101,7 +105,9 @@ Future<Widget> _buildApp({
   return ProviderScope(
     overrides: [
       sharedPreferencesProvider.overrideWith((ref) => prefs),
-      entryRepositoryProvider.overrideWith((ref) async => _FakeEntryRepository()),
+      entryRepositoryProvider.overrideWith(
+        (ref) async => _FakeEntryRepository(),
+      ),
       vaultProvider.overrideWith(() => vaultNotifier),
       trackerStatsProvider.overrideWith((ref, tracker) async* {
         yield _buildStats();
@@ -137,66 +143,68 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('TrackerCalendarScreen', () {
-    testWidgets('shows privacy icon and toggles between calendar and statistics', (
-      tester,
-    ) async {
-      final vaultNotifier = _TestVaultNotifier(
-        VaultState(unlockedLevel: PrivacyLevel.vault),
-      );
+    testWidgets(
+      'shows privacy icon and toggles between calendar and statistics',
+      (tester) async {
+        final vaultNotifier = _TestVaultNotifier(
+          VaultState(unlockedLevel: PrivacyLevel.vault),
+        );
 
-      await tester.pumpWidget(
-        await _buildApp(
-          tracker: _buildTracker(
-            privacyLevel: PrivacyLevel.vault,
-            title: 'Private Tracker',
+        await tester.pumpWidget(
+          await _buildApp(
+            tracker: _buildTracker(
+              privacyLevel: PrivacyLevel.vault,
+              title: 'Private Tracker',
+            ),
+            vaultNotifier: vaultNotifier,
           ),
-          vaultNotifier: vaultNotifier,
-        ),
-      );
+        );
 
-      await tester.tap(find.text('Open Tracker'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Open Tracker'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Private Tracker'), findsOneWidget);
-      expect(find.byIcon(Icons.lock_outline), findsOneWidget);
-      expect(find.byIcon(Icons.analytics_outlined), findsOneWidget);
+        expect(find.text('Private Tracker'), findsOneWidget);
+        expect(find.byIcon(Icons.lock_outline), findsOneWidget);
+        expect(find.byIcon(Icons.analytics_outlined), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.analytics_outlined));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.analytics_outlined));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Statistics'), findsOneWidget);
-      expect(find.byIcon(Icons.calendar_month), findsOneWidget);
-      expect(find.byIcon(Icons.lock_outline), findsNothing);
-      expect(find.text('PERFORMANCE OVERVIEW'), findsOneWidget);
-    });
+        expect(find.text('Statistics'), findsOneWidget);
+        expect(find.byIcon(Icons.calendar_month), findsOneWidget);
+        expect(find.byIcon(Icons.lock_outline), findsNothing);
+        expect(find.text('PERFORMANCE OVERVIEW'), findsOneWidget);
+      },
+    );
 
-    testWidgets('pops back to previous route when vault locks on a private tracker', (
-      tester,
-    ) async {
-      final vaultNotifier = _TestVaultNotifier(
-        VaultState(unlockedLevel: PrivacyLevel.vault),
-      );
+    testWidgets(
+      'pops back to previous route when vault locks on a private tracker',
+      (tester) async {
+        final vaultNotifier = _TestVaultNotifier(
+          VaultState(unlockedLevel: PrivacyLevel.vault),
+        );
 
-      await tester.pumpWidget(
-        await _buildApp(
-          tracker: _buildTracker(
-            privacyLevel: PrivacyLevel.vault,
-            title: 'Private Tracker',
+        await tester.pumpWidget(
+          await _buildApp(
+            tracker: _buildTracker(
+              privacyLevel: PrivacyLevel.vault,
+              title: 'Private Tracker',
+            ),
+            vaultNotifier: vaultNotifier,
           ),
-          vaultNotifier: vaultNotifier,
-        ),
-      );
+        );
 
-      await tester.tap(find.text('Open Tracker'));
-      await tester.pumpAndSettle();
-      expect(find.text('Private Tracker'), findsOneWidget);
+        await tester.tap(find.text('Open Tracker'));
+        await tester.pumpAndSettle();
+        expect(find.text('Private Tracker'), findsOneWidget);
 
-      vaultNotifier.setStateForTest(VaultState());
-      await tester.pumpAndSettle();
+        vaultNotifier.setStateForTest(VaultState());
+        await tester.pumpAndSettle();
 
-      expect(find.text('Open Tracker'), findsOneWidget);
-      expect(find.text('Private Tracker'), findsNothing);
-    });
+        expect(find.text('Open Tracker'), findsOneWidget);
+        expect(find.text('Private Tracker'), findsNothing);
+      },
+    );
 
     testWidgets('stays on screen when vault locks for a standard tracker', (
       tester,

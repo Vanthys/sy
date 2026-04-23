@@ -35,7 +35,10 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
   @override
   Widget build(BuildContext context) {
     // Eject user if vault locks and this is an encrypted tracker
-    ref.listen<VaultState>(vaultProvider, (VaultState? previous, VaultState next) {
+    ref.listen<VaultState>(vaultProvider, (
+      VaultState? previous,
+      VaultState next,
+    ) {
       final wasUnlocked = previous?.isVaultUnlocked ?? false;
       final isUnlocked = next.isVaultUnlocked;
       if (wasUnlocked &&

@@ -1,7 +1,8 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../services/theme_preferences_service.dart';
-export '../services/shared_preferences_provider.dart' show sharedPreferencesProvider;
+export '../services/shared_preferences_provider.dart'
+    show sharedPreferencesProvider;
 
 part 'theme_provider.g.dart';
 

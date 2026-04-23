@@ -10,9 +10,7 @@ Future<ProviderContainer> _buildContainer(
   final prefs = await SharedPreferences.getInstance();
 
   return ProviderContainer(
-    overrides: [
-      sharedPreferencesProvider.overrideWith((ref) => prefs),
-    ],
+    overrides: [sharedPreferencesProvider.overrideWith((ref) => prefs)],
   );
 }
 
@@ -45,7 +43,9 @@ void main() {
       final container = await _buildContainer({});
       addTearDown(container.dispose);
 
-      await container.read(themeProvider.notifier).setTheme(AppThemeMode.amoled);
+      await container
+          .read(themeProvider.notifier)
+          .setTheme(AppThemeMode.amoled);
 
       expect(container.read(themeProvider), AppThemeMode.amoled);
       expect(

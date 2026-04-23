@@ -17,14 +17,11 @@ class VaultFlags {
 }
 
 class VaultStorageService {
-  VaultStorageService(
-    this._prefs, {
-    FlutterSecureStorage? secureStorage,
-  }) : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+  VaultStorageService(this._prefs, {FlutterSecureStorage? secureStorage})
+    : _secureStorage = secureStorage ?? const FlutterSecureStorage();
 
   static const biometricsEnabledKey = 'vault_biometrics_enabled';
-  static const screenProtectionEnabledKey =
-      'vault_screen_protection_enabled';
+  static const screenProtectionEnabledKey = 'vault_screen_protection_enabled';
   static const secureGeneralHashRawKey = 'vault_general_hash';
   static const secureGeneralSaltRawKey = 'vault_general_salt';
   static const secureGeneralEncryptionKey = 'vault_general_enc_key';
@@ -55,14 +52,8 @@ class VaultStorageService {
     required String saltBase64,
     required String encryptionKeyBase64,
   }) async {
-    await _secureStorage.write(
-      key: secureGeneralHashRawKey,
-      value: hashBase64,
-    );
-    await _secureStorage.write(
-      key: secureGeneralSaltRawKey,
-      value: saltBase64,
-    );
+    await _secureStorage.write(key: secureGeneralHashRawKey, value: hashBase64);
+    await _secureStorage.write(key: secureGeneralSaltRawKey, value: saltBase64);
     await _secureStorage.write(
       key: secureGeneralEncryptionKey,
       value: encryptionKeyBase64,
