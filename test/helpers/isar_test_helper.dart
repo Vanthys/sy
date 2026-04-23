@@ -63,7 +63,8 @@ Future<String?> _findIsarFlutterLibsPackageRoot() async {
   );
   if (!configFile.existsSync()) return null;
 
-  final json = jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
+  final json =
+      jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
   final packages = (json['packages'] as List).cast<Map<String, dynamic>>();
   final package = packages.firstWhere(
     (pkg) => pkg['name'] == 'isar_community_flutter_libs',
