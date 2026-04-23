@@ -5,7 +5,7 @@ import '/data/database.dart';
 import '/data/schemas/tracker_schema.dart';
 import '/data/schemas/entry_schema.dart';
 import '/data/tracker_config.dart';
-import '/logic/vault_provider.dart';
+import '/data/vault_access.dart';
 import '/utils/encryption_utils.dart';
 
 /// Adapts [IsarTracker] rows to the app-level [Tracker] data class.
@@ -30,7 +30,7 @@ extension IsarTrackerConversion on IsarTracker {
 
 class TrackerRepository {
   final Isar _isar;
-  final VaultState vaultState;
+  final VaultAccess vaultState;
 
   TrackerRepository(this._isar, this.vaultState);
 

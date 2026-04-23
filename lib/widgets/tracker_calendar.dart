@@ -41,13 +41,13 @@ class _TrackerCalendarState extends ConsumerState<TrackerCalendar> {
 
   @override
   Widget build(BuildContext context) {
-    final notifier = ref.watch(trackerCalendarProvider(widget.tracker));
+    final calendarState = ref.watch(trackerCalendarProvider(widget.tracker));
 
-    if (notifier.isLoading) {
+    if (calendarState.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final months = notifier.state.months;
+    final months = calendarState.months;
 
     return CustomScrollView(
       controller: _scrollController,
@@ -90,7 +90,7 @@ class _TrackerCalendarState extends ConsumerState<TrackerCalendar> {
                       );
                       if (result != null) {
                         await ref
-                            .read(trackerCalendarProvider(widget.tracker))
+                            .read(trackerCalendarProvider(widget.tracker).notifier)
                             .saveEntry(dayData.date, result);
                       }
                     },
@@ -111,7 +111,7 @@ class _TrackerCalendarState extends ConsumerState<TrackerCalendar> {
         SliverToBoxAdapter(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
-            child: notifier.state.isLoadingMore
+            child: calendarState.isLoadingMore
                 ? const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(child: CircularProgressIndicator()),

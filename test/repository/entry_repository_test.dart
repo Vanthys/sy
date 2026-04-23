@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar_community/isar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sy3/data/schemas/tracker_schema.dart';
 import 'package:sy3/data/schemas/entry_schema.dart';
 import 'package:sy3/data/database.dart';
@@ -59,8 +60,9 @@ void main() {
     late String trackerId;
 
     setUp(() async {
+      SharedPreferences.setMockInitialValues({});
       isar = await _openIsar();
-      repo = EntryRepository(isar);
+      repo = EntryRepository(isar, await SharedPreferences.getInstance());
       trackerId = await _createRawTracker(isar);
     });
 

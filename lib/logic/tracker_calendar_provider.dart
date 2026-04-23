@@ -1,17 +1,16 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' show Ref;
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:intl/intl.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../data/database.dart';
 import '../data/providers.dart';
 import '../data/tracker_config.dart';
 import '../utils/color_utils.dart';
 
-// ----------------------------------------
-// Data Models
-// ----------------------------------------
+part 'tracker_calendar_provider.g.dart';
+
 class DayData {
   const DayData({
     required this.date,
@@ -48,69 +47,63 @@ class MonthData {
   final List<DayData> days;
 }
 
-// ----------------------------------------
-// State Model
-// ----------------------------------------
 class CalendarState {
   final List<MonthData> months;
+  final bool isLoading;
   final bool isLoadingMore;
 
-  const CalendarState({required this.months, this.isLoadingMore = false});
+  const CalendarState({
+    required this.months,
+    this.isLoading = false,
+    this.isLoadingMore = false,
+  });
 
-  CalendarState copyWith({List<MonthData>? months, bool? isLoadingMore}) {
+  CalendarState copyWith({
+    List<MonthData>? months,
+    bool? isLoading,
+    bool? isLoadingMore,
+  }) {
     return CalendarState(
       months: months ?? this.months,
+      isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     );
   }
 }
 
-// ----------------------------------------
-// Provider & Notifier
-// ----------------------------------------
-final trackerCalendarProvider = ChangeNotifierProvider.autoDispose
-    .family<TrackerCalendarNotifier, Tracker>(
-      (ref, tracker) => TrackerCalendarNotifier(ref, tracker),
-    );
-
-class TrackerCalendarNotifier extends ChangeNotifier {
-  TrackerCalendarNotifier(this.ref, this.tracker) {
-    _init();
-  }
-
-  final Ref ref;
-  final Tracker tracker;
-
+@riverpod
+class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
   static const int _monthsPerBatch = 6;
 
-  DateTime _latestMonth = DateTime.now();
-  DateTime _earliestLoaded = DateTime.now();
+  late Tracker _tracker;
+  late DateTime _latestMonth;
+  late DateTime _earliestLoaded;
   StreamSubscription<List<Entry>>? _entriesSub;
   List<Entry> _entries = [];
+  late List<Color> _streakColors;
+  late List<Color> _intensityColors;
 
-  // Cached configuration colors (pre-parsed once)
-  late final List<Color> _streakColors;
-  late final List<Color> _intensityColors;
+  @override
+  CalendarState build(Tracker tracker) {
+    _tracker = tracker;
 
-  CalendarState state = const CalendarState(months: []);
-  bool isLoading = true;
-
-  void _init() {
     final now = DateTime.now();
     _latestMonth = DateTime(now.year, now.month, 1);
     _earliestLoaded = DateTime(now.year, now.month - (_monthsPerBatch - 1), 1);
 
-    // Pre-parse config colors once to avoid hex parsing in the loop
     _streakColors = _parseStreakColors();
     _intensityColors = _parseIntensityColors();
 
+    ref.onDispose(() => _entriesSub?.cancel());
     _setupStream();
+
+    return const CalendarState(months: [], isLoading: true);
   }
 
   List<Color> _parseStreakColors() {
-    if (tracker.config.inputType == InputType.choice &&
-        tracker.config.optionColors != null) {
-      final parsed = tracker.config.optionColors!
+    if (_tracker.config.inputType == InputType.choice &&
+        _tracker.config.optionColors != null) {
+      final parsed = _tracker.config.optionColors!
           .map(ColorUtils.parseHexColor)
           .whereType<Color>()
           .toList();
@@ -120,7 +113,7 @@ class TrackerCalendarNotifier extends ChangeNotifier {
       }
     }
 
-    final colors = tracker.config.streakColors;
+    final colors = _tracker.config.streakColors;
     if (colors == null || colors.isEmpty) {
       return [const Color(0xFF2196F3), const Color(0xFF2196F3)];
     }
@@ -136,15 +129,9 @@ class TrackerCalendarNotifier extends ChangeNotifier {
   }
 
   List<Color> _parseIntensityColors() {
-    final colors = tracker.config.intensityColors;
+    final colors = _tracker.config.intensityColors;
     if (colors == null || colors.isEmpty) return [];
     return colors.map(ColorUtils.parseHexColor).whereType<Color>().toList();
-  }
-
-  @override
-  void dispose() {
-    _entriesSub?.cancel();
-    super.dispose();
   }
 
   void _setupStream() {
@@ -152,7 +139,7 @@ class TrackerCalendarNotifier extends ChangeNotifier {
     ref.read(entryRepositoryProvider.future).then((entryRepo) {
       _entriesSub = entryRepo
           .watchEntriesInRange(
-            tracker.id,
+            _tracker.id,
             _earliestLoaded,
             _latestMonth.add(const Duration(days: 31)),
           )
@@ -164,59 +151,53 @@ class TrackerCalendarNotifier extends ChangeNotifier {
   }
 
   void _updateState() {
-    // We removed 'compute' (Isolate) because spawning was causing a 200-500ms freeze on the main thread.
-    // For small sets (6-24 months), synchronous grouping on the main thread is actually faster
-    // than the overhead of serialization and isolate setup.
     final months = _generateMonthsData();
-    state = state.copyWith(months: months);
-    isLoading = false;
-    notifyListeners();
+    state = state.copyWith(
+      months: months,
+      isLoading: false,
+    );
   }
 
   List<MonthData> _generateMonthsData() {
     final entryMap = <DateTime, Entry>{
-      for (final e in _entries)
-        DateTime(e.date.year, e.date.month, e.date.day): e,
+      for (final entry in _entries)
+        DateTime(entry.date.year, entry.date.month, entry.date.day): entry,
     };
 
     final meaningfulEntries = _entries
-        .where((e) => e.quantity.round() > 0)
+        .where((entry) => entry.quantity.round() > 0)
         .toList();
     final entryDatesSet = meaningfulEntries
-        .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
+        .map((entry) => DateTime(entry.date.year, entry.date.month, entry.date.day))
         .toSet();
 
-    // Streak Calculation
     final today = DateTime.now();
     final todayMidnight = DateTime(today.year, today.month, today.day);
 
-    final createdAt = tracker.createdAt;
+    final createdAt = _tracker.createdAt;
     final createdAtMidnight = DateTime(
       createdAt.year,
       createdAt.month,
       createdAt.day,
     );
 
-    // Determine Tracking Origin (earliest of creation or data)
     final sortedDays = entryDatesSet.toList()..sort();
-    final earliestEntry = sortedDays.isEmpty
-        ? createdAtMidnight
-        : sortedDays.first;
+    final earliestEntry = sortedDays.isEmpty ? createdAtMidnight : sortedDays.first;
     final trackingStartDay = earliestEntry.isBefore(createdAtMidnight)
         ? earliestEntry
         : createdAtMidnight;
 
-    final Set<DateTime> streakDatesSet = {};
-    DateTime current = todayMidnight;
+    final streakDatesSet = <DateTime>{};
+    var current = todayMidnight;
 
-    if (tracker.streakType == StreakType.continued &&
+    if (_tracker.streakType == StreakType.continued &&
         !entryDatesSet.contains(current)) {
       current = DateTime(current.year, current.month, current.day - 1);
     }
 
-    bool isGoodDay(DateTime d) {
-      final hasEntry = entryDatesSet.contains(d);
-      return tracker.streakType == StreakType.continued ? hasEntry : !hasEntry;
+    bool isGoodDay(DateTime day) {
+      final hasEntry = entryDatesSet.contains(day);
+      return _tracker.streakType == StreakType.continued ? hasEntry : !hasEntry;
     }
 
     while (isGoodDay(current) && !current.isBefore(trackingStartDay)) {
@@ -224,9 +205,8 @@ class TrackerCalendarNotifier extends ChangeNotifier {
       current = DateTime(current.year, current.month, current.day - 1);
     }
 
-    // Grouping
     final months = <MonthData>[];
-    DateTime month = _latestMonth;
+    var month = _latestMonth;
 
     while (month.isAfter(_earliestLoaded) ||
         month.isAtSameMomentAs(_earliestLoaded)) {
@@ -237,14 +217,18 @@ class TrackerCalendarNotifier extends ChangeNotifier {
           : monthEnd;
       final visibleDaysCount = maxVisibleDate.day;
 
-      final days = List.generate(visibleDaysCount, (i) {
-        final date = DateTime(month.year, month.month, visibleDaysCount - i);
+      final days = List.generate(visibleDaysCount, (index) {
+        final date = DateTime(
+          month.year,
+          month.month,
+          visibleDaysCount - index,
+        );
         final entry = entryMap[date];
         final amount = entry?.quantity ?? 0.0;
         final inStreak = streakDatesSet.contains(date);
 
-        bool isStart = false;
-        bool isEnd = false;
+        var isStart = false;
+        var isEnd = false;
 
         if (inStreak) {
           final yesterday = DateTime(date.year, date.month, date.day - 1);
@@ -254,17 +238,17 @@ class TrackerCalendarNotifier extends ChangeNotifier {
         }
 
         final tooltip =
-            '${DateFormat('yyyy-MM-dd').format(date)}${amount > 0 ? ' - $amount ${tracker.config.unit ?? 'units'}' : ''}';
+            '${DateFormat('yyyy-MM-dd').format(date)}${amount > 0 ? ' - $amount ${_tracker.config.unit ?? 'units'}' : ''}';
 
-        final dayColor = tracker.config.inputType == InputType.choice
+        final dayColor = _tracker.config.inputType == InputType.choice
             ? ColorUtils.getColorForChoice(
                 (amount - 1).toInt(),
-                optionColors: tracker.config.optionColors,
+                optionColors: _tracker.config.optionColors,
                 fallback: _intensityColors.isNotEmpty
                     ? _intensityColors.first
                     : Colors.blue,
               )
-            : tracker.config.inputType == InputType.toggle
+            : _tracker.config.inputType == InputType.toggle
             ? (amount > 0
                   ? (_intensityColors.isNotEmpty
                         ? _intensityColors.last
@@ -273,22 +257,21 @@ class TrackerCalendarNotifier extends ChangeNotifier {
             : ColorUtils.getColorForAmount(
                 amount,
                 preParsedColors: _intensityColors,
-                maxValue:
-                    tracker.config.intensityGoal ?? tracker.config.maxValue,
+                maxValue: _tracker.config.intensityGoal ?? _tracker.config.maxValue,
               );
 
-        List<Color> gradient = _streakColors;
+        var gradient = _streakColors;
 
-        if (inStreak && tracker.config.inputType == InputType.choice) {
+        if (inStreak && _tracker.config.inputType == InputType.choice) {
           final yesterday = DateTime(date.year, date.month, date.day - 1);
           final tomorrow = DateTime(date.year, date.month, date.day + 1);
 
-          Color getChoiceColor(DateTime d) {
-            final e = entryMap[d];
-            if (e != null && e.quantity > 0) {
+          Color getChoiceColor(DateTime day) {
+            final foundEntry = entryMap[day];
+            if (foundEntry != null && foundEntry.quantity > 0) {
               return ColorUtils.getColorForChoice(
-                (e.quantity - 1).toInt(),
-                optionColors: tracker.config.optionColors,
+                (foundEntry.quantity - 1).toInt(),
+                optionColors: _tracker.config.optionColors,
                 fallback: _intensityColors.isNotEmpty
                     ? _intensityColors.first
                     : Colors.blue,
@@ -297,11 +280,11 @@ class TrackerCalendarNotifier extends ChangeNotifier {
             return dayColor;
           }
 
-          Color prevColor = isStart ? dayColor : getChoiceColor(yesterday);
-          Color nextColor = isEnd ? dayColor : getChoiceColor(tomorrow);
+          final prevColor = isStart ? dayColor : getChoiceColor(yesterday);
+          final nextColor = isEnd ? dayColor : getChoiceColor(tomorrow);
 
-          Color leftColor = Color.lerp(nextColor, dayColor, 0.5) ?? dayColor;
-          Color rightColor = Color.lerp(prevColor, dayColor, 0.5) ?? dayColor;
+          final leftColor = Color.lerp(nextColor, dayColor, 0.5) ?? dayColor;
+          final rightColor = Color.lerp(prevColor, dayColor, 0.5) ?? dayColor;
 
           gradient = [leftColor, dayColor, rightColor];
         }
@@ -317,7 +300,7 @@ class TrackerCalendarNotifier extends ChangeNotifier {
           isStreakStart: isStart,
           isStreakEnd: isEnd,
         );
-      }).toList();
+      });
 
       months.add(
         MonthData(
@@ -329,14 +312,14 @@ class TrackerCalendarNotifier extends ChangeNotifier {
 
       month = DateTime(month.year, month.month - 1, 1);
     }
+
     return months;
   }
 
   Future<void> loadMorePastMonths() async {
-    if (isLoading || state.isLoadingMore) return;
+    if (state.isLoading || state.isLoadingMore) return;
 
     state = state.copyWith(isLoadingMore: true);
-    notifyListeners();
 
     final newStart = DateTime(
       _earliestLoaded.year,
@@ -346,7 +329,7 @@ class TrackerCalendarNotifier extends ChangeNotifier {
 
     final entryRepo = await ref.read(entryRepositoryProvider.future);
     final older = await entryRepo.fetchEntriesInRange(
-      tracker.id,
+      _tracker.id,
       newStart,
       _earliestLoaded.add(const Duration(days: 1)),
     );
@@ -357,19 +340,16 @@ class TrackerCalendarNotifier extends ChangeNotifier {
     _setupStream();
 
     state = state.copyWith(isLoadingMore: false);
-    notifyListeners();
   }
 
   Future<void> saveEntry(DateTime date, double amount) async {
     final normalized = DateTime(date.year, date.month, date.day);
-
-    // --- Synchronous Optimistic Update ---
     final now = DateTime.now();
     final index = _entries.indexWhere(
-      (e) =>
-          e.date.year == normalized.year &&
-          e.date.month == normalized.month &&
-          e.date.day == normalized.day,
+      (entry) =>
+          entry.date.year == normalized.year &&
+          entry.date.month == normalized.month &&
+          entry.date.day == normalized.day,
     );
 
     if (index != -1) {
@@ -391,7 +371,7 @@ class TrackerCalendarNotifier extends ChangeNotifier {
       _entries.add(
         Entry(
           id: -1,
-          tracker: tracker.id,
+          tracker: _tracker.id,
           date: normalized,
           quantity: amount,
           createdAt: now,
@@ -401,9 +381,8 @@ class TrackerCalendarNotifier extends ChangeNotifier {
     }
 
     _updateState();
-    // ------------------------------------
 
     final entryRepo = await ref.read(entryRepositoryProvider.future);
-    await entryRepo.saveEntry(tracker.id, normalized, amount);
+    await entryRepo.saveEntry(_tracker.id, normalized, amount);
   }
 }
