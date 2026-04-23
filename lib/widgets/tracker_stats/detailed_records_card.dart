@@ -34,7 +34,9 @@ class DetailedRecordsCard extends StatelessWidget {
       }
     }
 
-    final createdStr = DateFormat('MMMM d, yyyy').format(tracker.createdAt);
+    final trackingStartStr = DateFormat(
+      'MMMM d, yyyy',
+    ).format(stats.trackingStart);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -96,7 +98,7 @@ class DetailedRecordsCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    createdStr,
+                    trackingStartStr,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),

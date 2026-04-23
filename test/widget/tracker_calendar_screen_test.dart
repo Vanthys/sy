@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,7 +7,6 @@ import 'package:sy3/data/database.dart';
 import 'package:sy3/data/entry_repository.dart';
 import 'package:sy3/data/providers.dart';
 import 'package:sy3/data/tracker_config.dart';
-import 'package:sy3/logic/tracker_overview_provider.dart';
 import 'package:sy3/logic/tracker_stats_provider.dart';
 import 'package:sy3/logic/vault_provider.dart';
 import 'package:sy3/screens/tracker_calendar_screen.dart';
@@ -67,37 +67,85 @@ class _TestVaultNotifier extends VaultNotifier {
 Tracker _buildTracker({
   PrivacyLevel privacyLevel = PrivacyLevel.standard,
   String title = 'Tracker',
+  StreakType streakType = StreakType.continued,
+  TrackerConfig config = const TrackerConfig(),
 }) {
   final now = DateTime.now();
   return Tracker(
     id: 'tracker-1',
     title: title,
-    streakType: StreakType.continued,
+    streakType: streakType,
     privacyLevel: privacyLevel,
-    config: const TrackerConfig(),
+    config: config,
     createdAt: now,
     updatedAt: now,
   );
 }
 
-TrackerStats _buildStats() {
+TrackerStats _buildStats({
+  TrackerStatsFamily family = TrackerStatsFamily.numeric,
+  List<TrackerStatCard>? overviewCards,
+}) {
   return TrackerStats(
-    totalActiveDays: 5,
-    totalQuantity: 12,
-    completionRate: 0.5,
+    family: family,
+    overviewCards:
+        overviewCards ??
+        const [
+          TrackerStatCard(
+            label: 'Total Amount',
+            value: '12',
+            unit: 'units',
+            icon: Icons.analytics,
+          ),
+          TrackerStatCard(
+            label: 'Active Days',
+            value: '5',
+            unit: 'days',
+            icon: Icons.calendar_today,
+          ),
+          TrackerStatCard(
+            label: 'Success Rate',
+            value: '50',
+            unit: '%',
+            icon: Icons.auto_graph,
+          ),
+          TrackerStatCard(
+            label: 'Avg This Month',
+            value: '1.2',
+            unit: 'units',
+            icon: Icons.speed,
+          ),
+        ],
     weekdayDistribution: {for (var i = 1; i <= 7; i++) i: 0},
-    monthlyAverage: 1.2,
+    lifecycle: const LifecycleChartData(
+      granularity: LifecycleGranularity.week,
+      bucketLabels: ['W1', 'W2'],
+      series: [
+        LifecycleSeries(label: 'Lifecycle', values: [2, 3]),
+      ],
+      isStacked: false,
+    ),
     nextMilestone: 7,
     currentStreak: 3,
     longestStreak: 6,
     longestStreakStart: DateTime(2026, 1, 1),
     longestStreakEnd: DateTime(2026, 1, 6),
+    trackingStart: DateTime(2025, 12, 1),
+    totalActiveDays: 5,
+    totalQuantity: 12,
+    completionRate: 0.5,
+    daysSinceLastLapse: null,
+    optionTotals: const {},
+    monthlyOptionTotals: const {},
+    topChoice: null,
+    topChoiceThisMonth: null,
   );
 }
 
 Future<Widget> _buildApp({
   required Tracker tracker,
   required _TestVaultNotifier vaultNotifier,
+  TrackerStats? stats,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
@@ -110,10 +158,7 @@ Future<Widget> _buildApp({
       ),
       vaultProvider.overrideWith(() => vaultNotifier),
       trackerStatsProvider.overrideWith((ref, tracker) async* {
-        yield _buildStats();
-      }),
-      trackerOverviewProvider.overrideWith((ref, trackerId) async* {
-        yield List<double>.filled(historyDays, 0);
+        yield stats ?? _buildStats();
       }),
     ],
     child: MaterialApp(
@@ -174,6 +219,9 @@ void main() {
         expect(find.byIcon(Icons.calendar_month), findsOneWidget);
         expect(find.byIcon(Icons.lock_outline), findsNothing);
         expect(find.text('PERFORMANCE OVERVIEW'), findsOneWidget);
+        expect(find.text('LIFECYCLE TREND'), findsOneWidget);
+        expect(find.text('ACTIVITY TREND (28 DAYS)'), findsNothing);
+        expect(find.text('Total Amount'), findsOneWidget);
       },
     );
 
@@ -229,6 +277,120 @@ void main() {
 
       expect(find.text('Public Tracker'), findsOneWidget);
       expect(find.text('Open Tracker'), findsNothing);
+    });
+
+    testWidgets('shows choice-specific overview cards on statistics screen', (
+      tester,
+    ) async {
+      final vaultNotifier = _TestVaultNotifier(VaultState());
+
+      await tester.pumpWidget(
+        await _buildApp(
+          tracker: _buildTracker(
+            title: 'Mood',
+            config: const TrackerConfig(
+              inputType: InputType.choice,
+              options: ['Good', 'Okay', 'Bad'],
+            ),
+          ),
+          vaultNotifier: vaultNotifier,
+          stats: _buildStats(
+            family: TrackerStatsFamily.choice,
+            overviewCards: const [
+              TrackerStatCard(
+                label: 'Total Logged Days',
+                value: '8',
+                unit: 'days',
+                icon: Icons.event_note,
+              ),
+              TrackerStatCard(
+                label: 'Top Choice',
+                value: 'Good',
+                unit: '5 times',
+                icon: Icons.pie_chart_outline,
+              ),
+              TrackerStatCard(
+                label: 'Top Choice This Month',
+                value: 'Okay',
+                unit: '3 times',
+                icon: Icons.calendar_view_month,
+              ),
+              TrackerStatCard(
+                label: 'Success Rate',
+                value: '67',
+                unit: '%',
+                icon: Icons.auto_graph,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Tracker'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.analytics_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Top Choice'), findsOneWidget);
+      expect(find.text('Top Choice This Month'), findsOneWidget);
+      expect(find.text('Total Logged Days'), findsOneWidget);
+    });
+
+    testWidgets('renders abstinence numeric lifecycle as a line chart', (
+      tester,
+    ) async {
+      final vaultNotifier = _TestVaultNotifier(VaultState());
+
+      await tester.pumpWidget(
+        await _buildApp(
+          tracker: _buildTracker(
+            title: 'Smoking',
+            streakType: StreakType.abstinence,
+            config: const TrackerConfig(
+              inputType: InputType.number,
+              unit: 'cigs',
+            ),
+          ),
+          vaultNotifier: vaultNotifier,
+          stats: _buildStats(
+            family: TrackerStatsFamily.abstinence,
+            overviewCards: const [
+              TrackerStatCard(
+                label: 'Total Lapses',
+                value: '5',
+                unit: 'days',
+                icon: Icons.warning_amber_rounded,
+              ),
+              TrackerStatCard(
+                label: 'Days Since Last Lapse',
+                value: '3',
+                unit: 'days',
+                icon: Icons.timelapse,
+              ),
+              TrackerStatCard(
+                label: 'Success Rate',
+                value: '80',
+                unit: '%',
+                icon: Icons.auto_graph,
+              ),
+              TrackerStatCard(
+                label: 'Longest Streak',
+                value: '12',
+                unit: 'days',
+                icon: Icons.local_fire_department,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Tracker'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.analytics_outlined));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LineChart), findsOneWidget);
+      expect(find.byType(BarChart), findsOneWidget);
     });
   });
 }

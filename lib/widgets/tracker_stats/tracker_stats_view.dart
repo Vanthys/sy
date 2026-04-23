@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
 import '../../logic/tracker_stats_provider.dart';
-import '../../logic/tracker_overview_provider.dart';
 import '../../utils/color_utils.dart';
 
 import 'performance_grid.dart';
@@ -20,7 +19,6 @@ class TrackerStatsView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(trackerStatsProvider(tracker));
-    final historyAsync = ref.watch(trackerOverviewProvider(tracker.id));
     final cs = Theme.of(context).colorScheme;
 
     final accent =
@@ -29,7 +27,7 @@ class TrackerStatsView extends ConsumerWidget {
             : null) ??
         (tracker.streakType == StreakType.continued ? cs.primary : cs.tertiary);
 
-    if (statsAsync.isLoading || historyAsync.isLoading) {
+    if (statsAsync.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -38,7 +36,6 @@ class TrackerStatsView extends ConsumerWidget {
     }
 
     final stats = statsAsync.value!;
-    final history = historyAsync.value ?? [];
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -48,11 +45,11 @@ class TrackerStatsView extends ConsumerWidget {
         children: [
           _buildSectionHeader(context, 'Performance Overview'),
           const SizedBox(height: 16),
-          PerformanceGrid(tracker: tracker, stats: stats, accent: accent),
+          PerformanceGrid(stats: stats, accent: accent),
           const SizedBox(height: 32),
-          _buildSectionHeader(context, 'Activity Trend (28 Days)'),
+          _buildSectionHeader(context, 'Lifecycle Trend'),
           const SizedBox(height: 16),
-          ActivityTrendChart(tracker: tracker, data: history, accent: accent),
+          LifecycleTrendChart(tracker: tracker, stats: stats, accent: accent),
           const SizedBox(height: 32),
           _buildSectionHeader(context, 'Milestone Progress'),
           const SizedBox(height: 16),

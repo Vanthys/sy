@@ -57,6 +57,9 @@ class ConsistencyMatrixChart extends StatelessWidget {
           maxY: maxCount.toDouble() == 0 ? 1 : maxCount.toDouble(),
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
+              tooltipMargin: 8,
+              fitInsideHorizontally: true,
+              fitInsideVertically: true,
               getTooltipColor: (group) => cs.inverseSurface,
               getTooltipItem: (group, groupIndex, rod, rodIndex) {
                 return BarTooltipItem(
