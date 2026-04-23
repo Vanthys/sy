@@ -170,7 +170,15 @@ void main() {
         expect(stats.family, TrackerStatsFamily.numeric);
         expect(stats.totalActiveDays, 4);
         expect(stats.totalQuantity, 20);
-        expect(stats.completionRate, closeTo(4 / 22, 0.000001));
+        final numericTrackingStart = dates
+            .followedBy([tracker.createdAt])
+            .reduce((a, b) => a.isBefore(b) ? a : b);
+        final numericDaysSinceStart =
+            today.difference(numericTrackingStart).inDays + 1;
+        expect(
+          stats.completionRate,
+          closeTo(4 / numericDaysSinceStart, 0.000001),
+        );
         expect(stats.weekdayDistribution, _weekdayCounts(dates));
         expect(stats.lifecycle.granularity, LifecycleGranularity.week);
         expect(stats.lifecycle.series.single.values, [6, 6, 8, 0]);
@@ -298,7 +306,15 @@ void main() {
           _cardByLabel(stats, 'Longest Streak').value,
           stats.longestStreak.toString(),
         );
-        expect(stats.completionRate, closeTo((130 - 3) / 130, 0.000001));
+        final abstinenceDaysSinceStart =
+            today.difference(tracker.createdAt).inDays + 1;
+        expect(
+          stats.completionRate,
+          closeTo(
+            (abstinenceDaysSinceStart - 3) / abstinenceDaysSinceStart,
+            0.000001,
+          ),
+        );
         expect(stats.lifecycle.series.single.values.reduce((a, b) => a + b), 3);
       },
     );

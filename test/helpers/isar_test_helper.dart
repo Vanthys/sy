@@ -74,6 +74,6 @@ Future<String?> _findIsarFlutterLibsPackageRoot() async {
   final rootUri = package['rootUri'] as String?;
   if (rootUri == null || rootUri.isEmpty) return null;
 
-  final resolved = Uri.parse(rootUri).resolveUri(Directory(projectRoot).uri);
+  final resolved = configFile.uri.resolve(rootUri);
   return Directory.fromUri(resolved).path;
 }
