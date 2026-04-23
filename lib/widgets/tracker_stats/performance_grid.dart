@@ -1,16 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../data/database.dart';
 import '../../logic/tracker_stats_provider.dart';
 
 class PerformanceGrid extends StatelessWidget {
-  const PerformanceGrid({
-    super.key,
-    required this.tracker,
-    required this.stats,
-    required this.accent,
-  });
+  const PerformanceGrid({super.key, required this.stats, required this.accent});
 
-  final Tracker tracker;
   final TrackerStats stats;
   final Color accent;
 
@@ -23,42 +16,17 @@ class PerformanceGrid extends StatelessWidget {
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
       childAspectRatio: 1.5,
-      children: [
-        _StatCard(
-          label: tracker.streakType == StreakType.continued
-              ? 'Total Active'
-              : 'Total Lapses',
-          value: '${stats.totalActiveDays}',
-          unit: 'days',
-          icon: tracker.streakType == StreakType.continued
-              ? Icons.calendar_today
-              : Icons.warning_amber_rounded,
-          color: accent,
-        ),
-        _StatCard(
-          label: 'Total Amount',
-          value: stats.totalQuantity % 1 == 0
-              ? stats.totalQuantity.toInt().toString()
-              : stats.totalQuantity.toStringAsFixed(1),
-          unit: tracker.config.unit ?? 'units',
-          icon: Icons.analytics,
-          color: accent,
-        ),
-        _StatCard(
-          label: 'Success Rate',
-          value: (stats.completionRate * 100).toStringAsFixed(0),
-          unit: '%',
-          icon: Icons.auto_graph,
-          color: accent,
-        ),
-        _StatCard(
-          label: 'Monthly Avg',
-          value: stats.monthlyAverage.toStringAsFixed(1),
-          unit: '${tracker.config.unit ?? 'u'}/d',
-          icon: Icons.speed,
-          color: accent,
-        ),
-      ],
+      children: stats.overviewCards
+          .map(
+            (card) => _StatCard(
+              label: card.label,
+              value: card.value,
+              unit: card.unit,
+              icon: card.icon,
+              color: accent,
+            ),
+          )
+          .toList(),
     );
   }
 }

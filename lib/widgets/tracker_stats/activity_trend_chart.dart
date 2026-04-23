@@ -1,38 +1,35 @@
-import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+
 import '../../data/database.dart';
 import '../../data/tracker_config.dart';
-import '../../utils/color_utils.dart';
+import '../../logic/tracker_stats_provider.dart';
 
-class ActivityTrendChart extends StatelessWidget {
-  const ActivityTrendChart({
+class LifecycleTrendChart extends StatelessWidget {
+  const LifecycleTrendChart({
     super.key,
     required this.tracker,
-    required this.data,
+    required this.stats,
     required this.accent,
   });
 
   final Tracker tracker;
-  final List<double> data;
+  final TrackerStats stats;
   final Color accent;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    if (data.isEmpty) {
+    if (stats.lifecycle.isEmpty) {
       return Container(
-        height: 160,
+        height: 180,
         alignment: Alignment.center,
-        child: const Text('No history available yet.'),
+        child: const Text('No lifecycle data available yet.'),
       );
     }
 
-    final isDiscrete =
-        tracker.config.inputType == InputType.toggle ||
-        tracker.config.inputType == InputType.choice;
-
     return Container(
-      height: 200,
+      height: 220,
       padding: const EdgeInsets.only(top: 24, right: 16, left: 16, bottom: 16),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -40,52 +37,98 @@ class ActivityTrendChart extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: cs.outlineVariant, width: 1),
       ),
-      child: isDiscrete
-          ? _buildDiscreteTrendChart(data, accent, cs)
-          : _buildContinuousTrendChart(data, accent, cs),
+      child: stats.lifecycle.isStacked
+          ? _buildStackedBarChart(context, cs)
+          : _buildSingleSeriesChart(context, cs),
     );
   }
 
-  Widget _buildDiscreteTrendChart(
-    List<double> data,
-    Color accent,
-    ColorScheme cs,
-  ) {
-    double maxVal = 0;
-    for (final val in data) {
-      if (val > maxVal) maxVal = val;
+  Widget _buildSingleSeriesChart(BuildContext context, ColorScheme cs) {
+    final values = stats.lifecycle.series.first.values;
+    final maxVal = values.fold<double>(
+      0,
+      (max, value) => value > max ? value : max,
+    );
+    final maxY = maxVal <= 0 ? 1.0 : maxVal * 1.2;
+
+    if (_usesLineChart) {
+      final spots = [
+        for (int i = 0; i < values.length; i++) FlSpot(i.toDouble(), values[i]),
+      ];
+
+      return LineChart(
+        LineChartData(
+          minX: 0,
+          maxX: (values.length - 1).toDouble(),
+          minY: 0,
+          maxY: maxY,
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              tooltipMargin: 8,
+              fitInsideHorizontally: true,
+              fitInsideVertically: true,
+              getTooltipColor: (spot) => cs.inverseSurface,
+              getTooltipItems: (spots) {
+                return spots.map((spot) {
+                  final bucket = stats.lifecycle.bucketLabels[spot.x.toInt()];
+                  final unit = tracker.config.unit == null
+                      ? ''
+                      : ' ${tracker.config.unit}';
+                  final rawValue = values[spot.x.toInt()];
+                  return LineTooltipItem(
+                    '$bucket\n${_formatValue(rawValue)}$unit',
+                    TextStyle(
+                      color: cs.onInverseSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                }).toList();
+              },
+            ),
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              preventCurveOverShooting: true,
+              color: accent,
+              barWidth: 3,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(
+                show: true,
+                color: accent.withValues(alpha: 0.15),
+              ),
+            ),
+          ],
+          titlesData: _titlesData(cs),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: maxVal > 0 ? maxVal / 2 : 1,
+            getDrawingHorizontalLine: (value) => FlLine(
+              color: cs.outlineVariant.withValues(alpha: 0.4),
+              strokeWidth: 1,
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+        ),
+      );
     }
-    if (maxVal == 0) maxVal = 1;
 
-    final barGroups = List.generate(data.length, (i) {
-      final val = data[i];
-      Color barColor = accent;
-      if (tracker.config.inputType == InputType.choice &&
-          tracker.config.optionColors?.isNotEmpty == true) {
-        final optionIndex = val.toInt() - 1;
-        if (optionIndex >= 0 &&
-            optionIndex < tracker.config.optionColors!.length) {
-          barColor =
-              ColorUtils.parseHexColor(
-                tracker.config.optionColors![optionIndex],
-              ) ??
-              accent;
-        }
-      } else if (val == 0) {
-        barColor = cs.outlineVariant;
-      }
-
+    final barGroups = List.generate(values.length, (index) {
+      final value = values[index];
       return BarChartGroupData(
-        x: i,
+        x: index,
         barRods: [
           BarChartRodData(
-            toY: val,
-            color: barColor,
-            width: 5,
-            borderRadius: BorderRadius.circular(2),
+            toY: value,
+            color: value > 0 ? accent : cs.outlineVariant,
+            width: 18,
+            borderRadius: BorderRadius.circular(4),
             backDrawRodData: BackgroundBarChartRodData(
               show: true,
-              toY: maxVal,
+              toY: maxVal <= 0 ? 1 : maxVal,
               color: cs.surfaceContainerHighest,
             ),
           ),
@@ -95,28 +138,23 @@ class ActivityTrendChart extends StatelessWidget {
 
     return BarChart(
       BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxVal <= 0 ? 1 : maxVal,
         barGroups: barGroups,
-        alignment: BarChartAlignment.spaceEvenly,
-        maxY: maxVal,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
+            tooltipMargin: 8,
+            fitInsideHorizontally: true,
+            fitInsideVertically: true,
             getTooltipColor: (group) => cs.inverseSurface,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              String label = rod.toY.toStringAsFixed(0);
-              if (tracker.config.inputType == InputType.toggle) {
-                label = rod.toY > 0 ? 'Done' : 'Skipped';
-              } else if (tracker.config.inputType == InputType.choice) {
-                final idx = rod.toY.toInt() - 1;
-                if (tracker.config.options != null &&
-                    idx >= 0 &&
-                    idx < tracker.config.options!.length) {
-                  label = tracker.config.options![idx];
-                } else if (rod.toY == 0) {
-                  label = 'Skipped';
-                }
-              }
+              final bucket = stats.lifecycle.bucketLabels[group.x.toInt()];
+              final rawValue = values[group.x.toInt()];
+              final unit = tracker.streakType == StreakType.abstinence
+                  ? 'lapses'
+                  : 'days';
               return BarTooltipItem(
-                label,
+                '$bucket\n${_formatValue(rawValue)} $unit',
                 TextStyle(
                   color: cs.onInverseSurface,
                   fontWeight: FontWeight.bold,
@@ -125,93 +163,163 @@ class ActivityTrendChart extends StatelessWidget {
             },
           ),
         ),
-        titlesData: const FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        borderData: FlBorderData(show: false),
+        titlesData: _titlesData(cs),
         gridData: const FlGridData(show: false),
+        borderData: FlBorderData(show: false),
       ),
     );
   }
 
-  Widget _buildContinuousTrendChart(
-    List<double> data,
-    Color accent,
-    ColorScheme cs,
-  ) {
-    final spots = <FlSpot>[];
-    double maxVal = 0;
-    for (int i = 0; i < data.length; i++) {
-      spots.add(FlSpot(i.toDouble(), data[i]));
-      if (data[i] > maxVal) maxVal = data[i];
+  bool get _usesLineChart {
+    switch (tracker.config.inputType) {
+      case InputType.number:
+      case InputType.slider:
+      case InputType.timer:
+      case InputType.text:
+        return !stats.lifecycle.isStacked;
+      case InputType.toggle:
+      case InputType.choice:
+        return false;
     }
-    if (maxVal == 0) maxVal = 1;
+  }
 
-    return LineChart(
-      LineChartData(
-        minX: 0,
-        maxX: (data.length - 1).toDouble(),
-        minY: 0,
-        maxY: maxVal * 1.2,
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (spot) => cs.inverseSurface,
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                final valStr = spot.y % 1 == 0
-                    ? spot.y.toInt().toString()
-                    : spot.y.toStringAsFixed(1);
-                final unitStr = tracker.config.unit != null
-                    ? ' ${tracker.config.unit}'
-                    : '';
-                return LineTooltipItem(
-                  '$valStr$unitStr',
-                  TextStyle(
-                    color: cs.onInverseSurface,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              }).toList();
-            },
+  Widget _buildStackedBarChart(BuildContext context, ColorScheme cs) {
+    final bucketCount = stats.lifecycle.bucketLabels.length;
+    final maxVal = List.generate(bucketCount, (bucketIndex) {
+      return stats.lifecycle.series.fold<double>(
+        0,
+        (sum, series) => sum + series.values[bucketIndex],
+      );
+    }).fold<double>(0, (max, total) => total > max ? total : max);
+
+    final barGroups = List.generate(bucketCount, (bucketIndex) {
+      final rodStacks = <BarChartRodStackItem>[];
+      double start = 0;
+      for (
+        int seriesIndex = 0;
+        seriesIndex < stats.lifecycle.series.length;
+        seriesIndex++
+      ) {
+        final series = stats.lifecycle.series[seriesIndex];
+        final value = series.values[bucketIndex];
+        if (value <= 0) continue;
+        final end = start + value;
+        rodStacks.add(
+          BarChartRodStackItem(
+            start,
+            end,
+            series.color ?? _fallbackChoiceColor(seriesIndex, cs),
           ),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            preventCurveOverShooting: true,
-            color: accent,
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: const FlDotData(show: false),
-            belowBarData: BarAreaData(
+        );
+        start = end;
+      }
+
+      return BarChartGroupData(
+        x: bucketIndex,
+        barRods: [
+          BarChartRodData(
+            toY: start,
+            width: 20,
+            rodStackItems: rodStacks,
+            borderRadius: BorderRadius.circular(4),
+            color: rodStacks.isEmpty ? cs.outlineVariant : null,
+            backDrawRodData: BackgroundBarChartRodData(
               show: true,
-              color: accent.withValues(alpha: 0.15),
+              toY: maxVal <= 0 ? 1 : maxVal,
+              color: cs.surfaceContainerHighest,
             ),
           ),
         ],
-        titlesData: const FlTitlesData(
-          leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      );
+    });
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxVal <= 0 ? 1 : maxVal,
+        barGroups: barGroups,
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            tooltipMargin: 8,
+            fitInsideHorizontally: true,
+            fitInsideVertically: true,
+            getTooltipColor: (group) => cs.inverseSurface,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              final bucket = stats.lifecycle.bucketLabels[group.x.toInt()];
+              final parts = <String>[];
+              for (final series in stats.lifecycle.series) {
+                final value = series.values[group.x.toInt()];
+                if (value > 0) {
+                  parts.add('${series.label}: ${_formatValue(value)}');
+                }
+              }
+              final body = parts.isEmpty ? 'No selections' : parts.join('\n');
+              return BarTooltipItem(
+                '$bucket\n$body',
+                TextStyle(
+                  color: cs.onInverseSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              );
+            },
+          ),
         ),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxVal / 2 > 0 ? maxVal / 2 : 1,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: cs.outlineVariant.withValues(alpha: 0.5),
-              strokeWidth: 1,
-            );
-          },
-        ),
+        titlesData: _titlesData(cs),
+        gridData: const FlGridData(show: false),
         borderData: FlBorderData(show: false),
       ),
     );
+  }
+
+  FlTitlesData _titlesData(ColorScheme cs) {
+    return FlTitlesData(
+      show: true,
+      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      bottomTitles: AxisTitles(
+        sideTitles: SideTitles(
+          showTitles: true,
+          reservedSize: 24,
+          interval: _bottomInterval(),
+          getTitlesWidget: (value, meta) {
+            final index = value.toInt();
+            if (index < 0 || index >= stats.lifecycle.bucketLabels.length) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                stats.lifecycle.bucketLabels[index],
+                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  double _bottomInterval() {
+    final count = stats.lifecycle.bucketLabels.length;
+    if (count <= 6) return 1;
+    if (count <= 12) return 2;
+    return 3;
+  }
+
+  Color _fallbackChoiceColor(int index, ColorScheme cs) {
+    final palette = [
+      cs.primary,
+      cs.secondary,
+      cs.tertiary,
+      Colors.orange,
+      Colors.teal,
+      Colors.redAccent,
+    ];
+    return palette[index % palette.length];
+  }
+
+  String _formatValue(double value) {
+    return value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);
   }
 }
