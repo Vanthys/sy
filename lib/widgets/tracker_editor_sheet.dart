@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import '/data/database.dart';
+import '/data/providers.dart';
 import '/data/tracker_repository.dart';
 import '/data/tracker_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,6 +41,9 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
   bool _isSubmitting = false;
   late final TrackerRepository _repo;
 
+  List<String> _selectedChildIds = [];
+  List<Tracker> _availableTrackers = [];
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +80,22 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
     while (_optionColors.length < _optionControllers.length) {
       _optionColors.add('#2196F3');
     }
+
+    _selectedChildIds = List.from(existing?.childIds ?? []);
+
+    // Load available (non-folder) trackers for child selection
+    Future.microtask(() async {
+      try {
+        final trackers = await ref.read(trackerListProvider.future);
+        if (mounted) {
+          setState(() {
+            _availableTrackers = trackers
+                .where((t) => !t.isFolder && t.id != existing?.id)
+                .toList();
+          });
+        }
+      } catch (_) {}
+    });
   }
 
   @override
@@ -130,6 +150,9 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
           streakType: _streakType,
           privacyLevel: _privacyLevel,
           config: updatedConfig,
+          childIds: _config.inputType == InputType.folder
+              ? _selectedChildIds
+              : null,
         );
       } else {
         await _repo.createTracker(
@@ -138,6 +161,9 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
           streakType: _streakType,
           privacyLevel: _privacyLevel,
           config: updatedConfig,
+          childIds: _config.inputType == InputType.folder
+              ? _selectedChildIds
+              : const [],
         );
       }
 
@@ -347,6 +373,10 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
                         value: InputType.choice,
                         child: Text('Multiple Choice'),
                       ),
+                      DropdownMenuItem(
+                        value: InputType.folder,
+                        child: Text('Folder (group trackers)'),
+                      ),
                     ],
                   ),
 
@@ -428,6 +458,40 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
                 ],
               ),
 
+              if (_config.inputType == InputType.folder) ...[
+                const SizedBox(height: 16),
+                _buildSectionCard(
+                  context,
+                  title: 'Child Trackers',
+                  children: [
+                    if (_availableTrackers.isEmpty)
+                      const Text(
+                        'No trackers available. Create some trackers first.',
+                        style: TextStyle(fontSize: 13),
+                      )
+                    else
+                      ...(_availableTrackers.map((t) {
+                        final selected = _selectedChildIds.contains(t.id);
+                        return CheckboxListTile(
+                          value: selected,
+                          title: Text(t.title),
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          onChanged: (checked) {
+                            setState(() {
+                              if (checked == true) {
+                                _selectedChildIds.add(t.id);
+                              } else {
+                                _selectedChildIds.remove(t.id);
+                              }
+                            });
+                          },
+                        );
+                      })),
+                  ],
+                ),
+              ],
+
               if (widget.vaultState.isVaultUnlocked) ...[
                 const SizedBox(height: 16),
                 _buildSectionCard(
@@ -491,7 +555,8 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
                 ),
               ],
 
-              if (_config.inputType != InputType.choice) ...[
+              if (_config.inputType != InputType.choice &&
+                  _config.inputType != InputType.folder) ...[
                 const SizedBox(height: 16),
                 _buildSectionCard(
                   context,

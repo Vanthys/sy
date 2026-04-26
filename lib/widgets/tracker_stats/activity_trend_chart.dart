@@ -179,6 +179,7 @@ class LifecycleTrendChart extends StatelessWidget {
         return !stats.lifecycle.isStacked;
       case InputType.toggle:
       case InputType.choice:
+      case InputType.folder:
         return false;
     }
   }

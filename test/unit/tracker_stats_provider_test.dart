@@ -141,8 +141,8 @@ void main() {
         final dates = [
           monthStart,
           _dayFrom(monthStart, 2),
-          _dayFrom(today, -10),
-          _dayFrom(today, -2),
+          _dayFrom(monthStart, 9),
+          _dayFrom(monthStart, 16),
         ];
         final repository = _StatsEntryRepository([
           _entry(id: 1, trackerId: tracker.id, date: dates[0], quantity: 2),

@@ -5,6 +5,7 @@ import '/data/providers.dart';
 import '/logic/vault_provider.dart';
 import '/widgets/tracker_editor_sheet.dart';
 import '/widgets/tracker_overview_card.dart';
+import 'folder_tracker_screen.dart';
 import 'settings_screen.dart';
 import 'tracker_calendar_screen.dart';
 
@@ -243,9 +244,17 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Error loading data:\n$e')),
         data: (trackers) {
+          // Collect all IDs that belong to a folder — hide them from the root list.
+          final childIds = trackers
+              .where((t) => t.isFolder)
+              .expand((t) => t.childIds)
+              .toSet();
+
           // Use the optimistic order during a pending reorder, so the list
           // doesn't flicker back to the stale DB order mid-write.
-          final displayTrackers = _pendingOrder ?? trackers;
+          final displayTrackers = (_pendingOrder ?? trackers)
+              .where((t) => !childIds.contains(t.id))
+              .toList();
 
           Widget listView;
           if (displayTrackers.isEmpty && !vaultState.isVaultUnlocked) {
@@ -391,8 +400,9 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                                TrackerCalendarScreen(tracker: tracker),
+                            builder: (_) => tracker.isFolder
+                                ? FolderTrackerScreen(folder: tracker)
+                                : TrackerCalendarScreen(tracker: tracker),
                           ),
                         );
                       },

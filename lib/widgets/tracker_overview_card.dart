@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '/data/database.dart';
 import '/logic/tracker_overview_provider.dart';
+import '/logic/folder_tracker_provider.dart';
 import '/utils/color_utils.dart';
 import '/data/tracker_config.dart';
 
@@ -29,14 +30,22 @@ class TrackerOverviewCard extends ConsumerWidget {
         (tracker.config.intensityColors?.isNotEmpty == true
             ? ColorUtils.parseHexColor(tracker.config.intensityColors!.first)
             : null) ??
-        (tracker.streakType == StreakType.continued ? cs.primary : cs.tertiary);
+        (tracker.isFolder
+            ? cs.secondary
+            : tracker.streakType == StreakType.continued
+            ? cs.primary
+            : cs.tertiary);
 
-    final asyncData = ref.watch(trackerOverviewProvider(tracker.id));
+    final asyncData = tracker.isFolder
+        ? ref.watch(folderTrackerOverviewProvider(tracker))
+        : ref.watch(trackerOverviewProvider(tracker.id));
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8), // small gap
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Material(
-        color: cs.surfaceContainerHighest,
+        color: tracker.isFolder
+            ? cs.secondaryContainer.withValues(alpha: 0.4)
+            : cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -74,6 +83,19 @@ class TrackerOverviewCard extends ConsumerWidget {
         ? tracker.description
         : null;
 
+    final iconData = tracker.isFolder
+        ? Icons.folder_open
+        : tracker.streakType == StreakType.continued
+        ? Icons.local_fire_department
+        : Icons.block;
+
+    final iconBg = tracker.isFolder
+        ? cs.secondaryContainer.withValues(alpha: 0.50)
+        : (tracker.streakType == StreakType.continued
+                  ? cs.primaryContainer
+                  : cs.tertiaryContainer)
+              .withValues(alpha: 0.30);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -82,19 +104,10 @@ class TrackerOverviewCard extends ConsumerWidget {
           height: 36,
           margin: const EdgeInsets.only(right: 12),
           decoration: BoxDecoration(
-            color:
-                (tracker.streakType == StreakType.continued
-                        ? cs.primaryContainer
-                        : cs.tertiaryContainer)
-                    .withValues(alpha: 0.30),
+            color: iconBg,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            tracker.streakType == StreakType.continued
-                ? Icons.local_fire_department
-                : Icons.block,
-            color: accent,
-          ),
+          child: Icon(iconData, color: accent),
         ),
         Expanded(
           child: Column(
@@ -140,23 +153,31 @@ class TrackerOverviewCard extends ConsumerWidget {
                   ),
                 ),
               const SizedBox(height: 4),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _Stat(
-                    icon: Icons.repeat,
-                    label: 'Current: ${tracker.currentStreak}',
-                    color: accent,
-                  ),
-                  _Stat(
-                    icon: Icons.emoji_events,
-                    label: 'Longest: ${tracker.longestStreak}',
-                    color: accent,
-                  ),
-                ],
-              ),
+              if (tracker.isFolder)
+                _Stat(
+                  icon: Icons.account_tree_outlined,
+                  label:
+                      '${tracker.childIds.length} tracker${tracker.childIds.length == 1 ? '' : 's'}',
+                  color: accent,
+                )
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    _Stat(
+                      icon: Icons.repeat,
+                      label: 'Current: ${tracker.currentStreak}',
+                      color: accent,
+                    ),
+                    _Stat(
+                      icon: Icons.emoji_events,
+                      label: 'Longest: ${tracker.longestStreak}',
+                      color: accent,
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -200,7 +221,9 @@ class TrackerOverviewCard extends ConsumerWidget {
     final fallbackMax = data.isEmpty
         ? 1.0
         : data.reduce((a, b) => a > b ? a : b);
-    final maxVal = config.intensityGoal ?? config.maxValue ?? fallbackMax;
+    final maxVal = tracker.isFolder
+        ? (tracker.childIds.isEmpty ? 1.0 : tracker.childIds.length.toDouble())
+        : (config.intensityGoal ?? config.maxValue ?? fallbackMax);
 
     final cells = List<double>.generate(_gridRows * _gridCols, (i) {
       final index = data.length - 1 - i;

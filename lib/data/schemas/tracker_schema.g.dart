@@ -1,7 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-// ignore_for_file: experimental_member_use
-
 part of 'tracker_schema.dart';
 
 // **************************************************************************
@@ -19,53 +17,58 @@ const IsarTrackerSchema = CollectionSchema(
   name: r'IsarTracker',
   id: -2651062972339766517,
   properties: {
-    r'configJson': PropertySchema(
+    r'childUuidsJson': PropertySchema(
       id: 0,
+      name: r'childUuidsJson',
+      type: IsarType.string,
+    ),
+    r'configJson': PropertySchema(
+      id: 1,
       name: r'configJson',
       type: IsarType.string,
     ),
     r'createdAt': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'currentStreak': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'currentStreak',
       type: IsarType.long,
     ),
     r'description': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'description',
       type: IsarType.string,
     ),
     r'longestStreak': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'longestStreak',
       type: IsarType.long,
     ),
     r'privacyLevelIndex': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'privacyLevelIndex',
       type: IsarType.long,
     ),
     r'sortOrder': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'sortOrder',
       type: IsarType.long,
     ),
     r'streakTypeIndex': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'streakTypeIndex',
       type: IsarType.long,
     ),
-    r'title': PropertySchema(id: 8, name: r'title', type: IsarType.string),
+    r'title': PropertySchema(id: 9, name: r'title', type: IsarType.string),
     r'updatedAt': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
-    r'uuid': PropertySchema(id: 10, name: r'uuid', type: IsarType.string),
+    r'uuid': PropertySchema(id: 11, name: r'uuid', type: IsarType.string),
   },
 
   estimateSize: _isarTrackerEstimateSize,
@@ -116,6 +119,12 @@ int _isarTrackerEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.childUuidsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.configJson.length * 3;
   {
     final value = object.description;
@@ -134,17 +143,18 @@ void _isarTrackerSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.configJson);
-  writer.writeDateTime(offsets[1], object.createdAt);
-  writer.writeLong(offsets[2], object.currentStreak);
-  writer.writeString(offsets[3], object.description);
-  writer.writeLong(offsets[4], object.longestStreak);
-  writer.writeLong(offsets[5], object.privacyLevelIndex);
-  writer.writeLong(offsets[6], object.sortOrder);
-  writer.writeLong(offsets[7], object.streakTypeIndex);
-  writer.writeString(offsets[8], object.title);
-  writer.writeDateTime(offsets[9], object.updatedAt);
-  writer.writeString(offsets[10], object.uuid);
+  writer.writeString(offsets[0], object.childUuidsJson);
+  writer.writeString(offsets[1], object.configJson);
+  writer.writeDateTime(offsets[2], object.createdAt);
+  writer.writeLong(offsets[3], object.currentStreak);
+  writer.writeString(offsets[4], object.description);
+  writer.writeLong(offsets[5], object.longestStreak);
+  writer.writeLong(offsets[6], object.privacyLevelIndex);
+  writer.writeLong(offsets[7], object.sortOrder);
+  writer.writeLong(offsets[8], object.streakTypeIndex);
+  writer.writeString(offsets[9], object.title);
+  writer.writeDateTime(offsets[10], object.updatedAt);
+  writer.writeString(offsets[11], object.uuid);
 }
 
 IsarTracker _isarTrackerDeserialize(
@@ -154,18 +164,19 @@ IsarTracker _isarTrackerDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = IsarTracker();
-  object.configJson = reader.readString(offsets[0]);
-  object.createdAt = reader.readDateTime(offsets[1]);
-  object.currentStreak = reader.readLong(offsets[2]);
-  object.description = reader.readStringOrNull(offsets[3]);
+  object.childUuidsJson = reader.readStringOrNull(offsets[0]);
+  object.configJson = reader.readString(offsets[1]);
+  object.createdAt = reader.readDateTime(offsets[2]);
+  object.currentStreak = reader.readLong(offsets[3]);
+  object.description = reader.readStringOrNull(offsets[4]);
   object.id = id;
-  object.longestStreak = reader.readLong(offsets[4]);
-  object.privacyLevelIndex = reader.readLong(offsets[5]);
-  object.sortOrder = reader.readLong(offsets[6]);
-  object.streakTypeIndex = reader.readLong(offsets[7]);
-  object.title = reader.readString(offsets[8]);
-  object.updatedAt = reader.readDateTime(offsets[9]);
-  object.uuid = reader.readString(offsets[10]);
+  object.longestStreak = reader.readLong(offsets[5]);
+  object.privacyLevelIndex = reader.readLong(offsets[6]);
+  object.sortOrder = reader.readLong(offsets[7]);
+  object.streakTypeIndex = reader.readLong(offsets[8]);
+  object.title = reader.readString(offsets[9]);
+  object.updatedAt = reader.readDateTime(offsets[10]);
+  object.uuid = reader.readString(offsets[11]);
   return object;
 }
 
@@ -177,15 +188,15 @@ P _isarTrackerDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readString(offset)) as P;
-    case 1:
-      return (reader.readDateTime(offset)) as P;
-    case 2:
-      return (reader.readLong(offset)) as P;
-    case 3:
       return (reader.readStringOrNull(offset)) as P;
-    case 4:
+    case 1:
+      return (reader.readString(offset)) as P;
+    case 2:
+      return (reader.readDateTime(offset)) as P;
+    case 3:
       return (reader.readLong(offset)) as P;
+    case 4:
+      return (reader.readStringOrNull(offset)) as P;
     case 5:
       return (reader.readLong(offset)) as P;
     case 6:
@@ -193,10 +204,12 @@ P _isarTrackerDeserializeProp<P>(
     case 7:
       return (reader.readLong(offset)) as P;
     case 8:
-      return (reader.readString(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 9:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 10:
+      return (reader.readDateTime(offset)) as P;
+    case 11:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -525,6 +538,165 @@ extension IsarTrackerQueryWhere
 
 extension IsarTrackerQueryFilter
     on QueryBuilder<IsarTracker, IsarTracker, QFilterCondition> {
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'childUuidsJson'),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'childUuidsJson'),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'childUuidsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'childUuidsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'childUuidsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'childUuidsJson',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'childUuidsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'childUuidsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'childUuidsJson',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'childUuidsJson',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'childUuidsJson', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
+  childUuidsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'childUuidsJson', value: ''),
+      );
+    });
+  }
+
   QueryBuilder<IsarTracker, IsarTracker, QAfterFilterCondition>
   configJsonEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1589,6 +1761,19 @@ extension IsarTrackerQueryLinks
 
 extension IsarTrackerQuerySortBy
     on QueryBuilder<IsarTracker, IsarTracker, QSortBy> {
+  QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> sortByChildUuidsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'childUuidsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy>
+  sortByChildUuidsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'childUuidsJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> sortByConfigJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'configJson', Sort.asc);
@@ -1729,6 +1914,19 @@ extension IsarTrackerQuerySortBy
 
 extension IsarTrackerQuerySortThenBy
     on QueryBuilder<IsarTracker, IsarTracker, QSortThenBy> {
+  QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> thenByChildUuidsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'childUuidsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy>
+  thenByChildUuidsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'childUuidsJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<IsarTracker, IsarTracker, QAfterSortBy> thenByConfigJson() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'configJson', Sort.asc);
@@ -1881,6 +2079,17 @@ extension IsarTrackerQuerySortThenBy
 
 extension IsarTrackerQueryWhereDistinct
     on QueryBuilder<IsarTracker, IsarTracker, QDistinct> {
+  QueryBuilder<IsarTracker, IsarTracker, QDistinct> distinctByChildUuidsJson({
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'childUuidsJson',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
   QueryBuilder<IsarTracker, IsarTracker, QDistinct> distinctByConfigJson({
     bool caseSensitive = true,
   }) {
@@ -1963,6 +2172,13 @@ extension IsarTrackerQueryProperty
   QueryBuilder<IsarTracker, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<IsarTracker, String?, QQueryOperations>
+  childUuidsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'childUuidsJson');
     });
   }
 

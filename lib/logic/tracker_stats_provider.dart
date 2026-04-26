@@ -279,6 +279,7 @@ TrackerStatsFamily _resolveFamily(Tracker tracker) {
     case InputType.slider:
     case InputType.timer:
     case InputType.text:
+    case InputType.folder:
       return TrackerStatsFamily.numeric;
   }
 }
