@@ -46,7 +46,7 @@ class TrackerOverviewCard extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Material(
         color: tracker.isFolder
-            ? cs.secondaryContainer.withValues(alpha: 0.4)
+            ? cs.surfaceContainer
             : cs.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,

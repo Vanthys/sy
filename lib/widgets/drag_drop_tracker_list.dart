@@ -36,6 +36,7 @@ class DragDropTrackerList extends StatefulWidget {
 class _DragDropTrackerListState extends State<DragDropTrackerList> {
   String? _draggingId;
   bool _draggingIsFolder = false;
+  bool _dragStarting = false;
   int _insertIndex = 0;
   double _draggedHeight = 100.0;
   String? _mergeTargetId;
@@ -62,6 +63,7 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
     setState(() {
       _draggingId = tracker.id;
       _draggingIsFolder = tracker.isFolder;
+      _dragStarting = true;
       _draggedHeight = box?.size.height ?? 100.0;
       // In remaining (excl. dragged card), this index keeps the gap at the
       // card's original slot so nothing visually jumps on drag start.
@@ -71,6 +73,7 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
 
   void _updateFromPointer(Offset globalPos) {
     if (_draggingId == null) return;
+    _dragStarting = false;
     final remaining = _remaining;
 
     // --- Compute insert index (where the gap should appear) ---
@@ -135,6 +138,7 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
     setState(() {
       _draggingId = null;
       _draggingIsFolder = false;
+      _dragStarting = false;
       _mergeTargetId = null;
       _mergeReady = false;
     });
@@ -157,6 +161,7 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
     setState(() {
       _draggingId = null;
       _draggingIsFolder = false;
+      _dragStarting = false;
       _mergeTargetId = null;
       _mergeReady = false;
     });
@@ -192,7 +197,9 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
             // Trailing end-of-list spacer
             if (trackerIndex == widget.trackers.length) {
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+                duration: (_draggingId != null && !_dragStarting)
+                    ? const Duration(milliseconds: 200)
+                    : Duration.zero,
                 curve: Curves.easeOut,
                 height: _draggingId != null && _insertIndex >= _remaining.length
                     ? _draggedHeight
@@ -227,7 +234,9 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
       children: [
         // Gap that opens at the insertion point as you drag.
         AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: (_draggingId != null && !_dragStarting)
+              ? const Duration(milliseconds: 200)
+              : Duration.zero,
           curve: Curves.easeOut,
           height: showSpacer ? _draggedHeight : 0,
         ),
