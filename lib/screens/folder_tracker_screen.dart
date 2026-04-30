@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '/data/database.dart';
 import '/data/providers.dart';
 import '/widgets/tracker_overview_card.dart';
+import '/widgets/folder_editor_sheet.dart';
 import '/widgets/tracker_editor_sheet.dart';
 import '/logic/vault_provider.dart';
 import 'tracker_calendar_screen.dart';
@@ -162,7 +163,6 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
 
   Future<void> _openFolderEditor(BuildContext context) async {
     final repo = await ref.read(trackerRepositoryProvider.future);
-    final vaultState = ref.read(vaultProvider);
     if (!context.mounted) return;
 
     final latest = await repo.getTrackerById(widget.folder.id) ?? widget.folder;
@@ -177,11 +177,7 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => TrackerEditorSheet(
-        repo: repo,
-        vaultState: vaultState,
-        existingTracker: latest,
-      ),
+      builder: (_) => FolderEditorSheet(repo: repo, existingFolder: latest),
     );
   }
 

@@ -5,6 +5,7 @@ import '/data/providers.dart';
 import '/data/tracker_config.dart';
 import '/logic/vault_provider.dart';
 import '/widgets/drag_drop_tracker_list.dart';
+import '/widgets/folder_editor_sheet.dart';
 import '/widgets/tracker_editor_sheet.dart';
 import 'folder_tracker_screen.dart';
 import 'settings_screen.dart';
@@ -52,23 +53,39 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     Tracker? existing,
   }) async {
     final repo = await ref.read(trackerRepositoryProvider.future);
-    final vaultState = ref.read(vaultProvider);
     if (!context.mounted) return;
-    final result = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => TrackerEditorSheet(
-        repo: repo,
-        vaultState: vaultState,
-        existingTracker: existing,
-      ),
-    );
+
+    final bool? result;
+    if (existing?.isFolder == true) {
+      result = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (_) => FolderEditorSheet(repo: repo, existingFolder: existing),
+      );
+    } else {
+      final vaultState = ref.read(vaultProvider);
+      result = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (_) => TrackerEditorSheet(
+          repo: repo,
+          vaultState: vaultState,
+          existingTracker: existing,
+        ),
+      );
+    }
 
     if (result == true && context.mounted) {
       ref.invalidate(refreshStreaksProvider);
