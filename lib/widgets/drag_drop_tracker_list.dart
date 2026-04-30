@@ -201,7 +201,9 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
                     ? const Duration(milliseconds: 200)
                     : Duration.zero,
                 curve: Curves.easeOut,
-                height: _draggingId != null && _insertIndex >= _remaining.length
+                height: _draggingId != null &&
+                        _mergeTargetId == null &&
+                        _insertIndex >= _remaining.length
                     ? _draggedHeight
                     : 0,
               );
@@ -224,7 +226,10 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
     // Index of this card in the remaining list (excl. dragged card).
     final indexInRemaining = _remaining.indexWhere((t) => t.id == tracker.id);
     final showSpacer =
-        _draggingId != null && !isDragging && indexInRemaining == _insertIndex;
+        _draggingId != null &&
+        !isDragging &&
+        _mergeTargetId == null &&
+        indexInRemaining == _insertIndex;
 
     final feedbackWidth = MediaQuery.of(context).size.width - 16;
 
