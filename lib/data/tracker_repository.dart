@@ -120,7 +120,7 @@ class TrackerRepository {
   // Mutations
   // ------------------------------------------------------------------
 
-  Future<void> createTracker({
+  Future<String> createTracker({
     required String title,
     String? description,
     required StreakType streakType,
@@ -134,8 +134,9 @@ class TrackerRepository {
         ? _encryptTextIfPrivate(description, privacyLevel)
         : null;
 
+    final id = const Uuid().v4();
     final row = IsarTracker()
-      ..uuid = const Uuid().v4()
+      ..uuid = id
       ..title = encTitle
       ..description = encDesc
       ..streakTypeIndex = streakType.index
@@ -149,6 +150,7 @@ class TrackerRepository {
       ..childUuidsJson = jsonEncode(childIds);
 
     await _isar.writeTxn(() => _trackers.put(row));
+    return id;
   }
 
   Future<void> updateTracker(

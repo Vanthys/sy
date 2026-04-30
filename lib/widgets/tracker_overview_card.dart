@@ -13,12 +13,14 @@ class TrackerOverviewCard extends ConsumerWidget {
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
+    this.onRemoveFromFolder,
   });
 
   final Tracker tracker;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback? onRemoveFromFolder;
 
   static const int _gridRows = 4;
   static const int _gridCols = 7;
@@ -184,10 +186,11 @@ class TrackerOverviewCard extends ConsumerWidget {
         PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'edit') onEdit();
+            if (value == 'remove_from_folder') onRemoveFromFolder?.call();
             if (value == 'delete') onDelete();
           },
-          itemBuilder: (_) => const [
-            PopupMenuItem(
+          itemBuilder: (_) => [
+            const PopupMenuItem(
               value: 'edit',
               child: Row(
                 children: [
@@ -197,7 +200,18 @@ class TrackerOverviewCard extends ConsumerWidget {
                 ],
               ),
             ),
-            PopupMenuItem(
+            if (onRemoveFromFolder != null)
+              const PopupMenuItem(
+                value: 'remove_from_folder',
+                child: Row(
+                  children: [
+                    Icon(Icons.folder_off_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text('Remove from folder'),
+                  ],
+                ),
+              ),
+            const PopupMenuItem(
               value: 'delete',
               child: Row(
                 children: [

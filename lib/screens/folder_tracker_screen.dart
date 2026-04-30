@@ -40,7 +40,11 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (allTrackers) {
-          final childOrder = _pendingOrder ?? widget.folder.childIds;
+          final liveFolder = allTrackers.firstWhere(
+            (t) => t.id == widget.folder.id,
+            orElse: () => widget.folder,
+          );
+          final childOrder = _pendingOrder ?? liveFolder.childIds;
           final children =
               allTrackers.where((t) => childOrder.contains(t.id)).toList()
                 ..sort(
@@ -142,6 +146,8 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
                         ),
                         onEdit: () => _openChildEditor(context, child),
                         onDelete: () => _deleteChild(context, child),
+                        onRemoveFromFolder: () =>
+                            _removeFromFolder(context, child),
                       ),
                     );
                   },
@@ -199,6 +205,22 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
         existingTracker: child,
       ),
     );
+  }
+
+  Future<void> _removeFromFolder(BuildContext context, Tracker child) async {
+    final currentOrder = _pendingOrder ?? widget.folder.childIds;
+    final newChildIds = currentOrder.where((id) => id != child.id).toList();
+    setState(() => _pendingOrder = newChildIds);
+
+    final repo = await ref.read(trackerRepositoryProvider.future);
+    await repo.updateTracker(widget.folder.id, childIds: newChildIds);
+
+    if (mounted) setState(() => _pendingOrder = null);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('"${child.title}" removed from folder')),
+      );
+    }
   }
 
   Future<void> _deleteChild(BuildContext context, Tracker child) async {
