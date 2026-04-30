@@ -20,14 +20,21 @@ class FolderTrackerScreen extends ConsumerStatefulWidget {
 
 class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
   List<String>? _pendingOrder;
+  int _pendingWriteCount = 0;
 
   @override
   Widget build(BuildContext context) {
     final trackersAsync = ref.watch(trackerListProvider);
+    final liveFolder =
+        trackersAsync.asData?.value.firstWhere(
+          (t) => t.id == widget.folder.id,
+          orElse: () => widget.folder,
+        ) ??
+        widget.folder;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.folder.title),
+        title: Text(liveFolder.title),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
@@ -82,11 +89,11 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.folder.description?.isNotEmpty == true)
+              if (liveFolder.description?.isNotEmpty == true)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Text(
-                    widget.folder.description!,
+                    liveFolder.description!,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -119,7 +126,10 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
                     final moved = reordered.removeAt(oldIndex);
                     reordered.insert(newIndex, moved);
 
-                    setState(() => _pendingOrder = reordered);
+                    setState(() {
+                      _pendingOrder = reordered;
+                      _pendingWriteCount++;
+                    });
 
                     final repo = await ref.read(
                       trackerRepositoryProvider.future,
@@ -129,7 +139,12 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
                       childIds: reordered,
                     );
 
-                    if (mounted) setState(() => _pendingOrder = null);
+                    if (mounted) {
+                      setState(() {
+                        _pendingWriteCount--;
+                        if (_pendingWriteCount == 0) _pendingOrder = null;
+                      });
+                    }
                   },
                   itemBuilder: (context, i) {
                     final child = children[i];
@@ -204,14 +219,27 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
   }
 
   Future<void> _removeFromFolder(BuildContext context, Tracker child) async {
-    final currentOrder = _pendingOrder ?? widget.folder.childIds;
+    final allTrackers = ref.read(trackerListProvider).asData?.value ?? [];
+    final liveFolder = allTrackers.firstWhere(
+      (t) => t.id == widget.folder.id,
+      orElse: () => widget.folder,
+    );
+    final currentOrder = _pendingOrder ?? liveFolder.childIds;
     final newChildIds = currentOrder.where((id) => id != child.id).toList();
-    setState(() => _pendingOrder = newChildIds);
+    setState(() {
+      _pendingOrder = newChildIds;
+      _pendingWriteCount++;
+    });
 
     final repo = await ref.read(trackerRepositoryProvider.future);
     await repo.updateTracker(widget.folder.id, childIds: newChildIds);
 
-    if (mounted) setState(() => _pendingOrder = null);
+    if (mounted) {
+      setState(() {
+        _pendingWriteCount--;
+        if (_pendingWriteCount == 0) _pendingOrder = null;
+      });
+    }
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('"${child.title}" removed from folder')),
