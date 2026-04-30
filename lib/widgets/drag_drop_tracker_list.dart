@@ -201,7 +201,8 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
                     ? const Duration(milliseconds: 200)
                     : Duration.zero,
                 curve: Curves.easeOut,
-                height: _draggingId != null &&
+                height:
+                    _draggingId != null &&
                         _mergeTargetId == null &&
                         _insertIndex >= _remaining.length
                     ? _draggedHeight

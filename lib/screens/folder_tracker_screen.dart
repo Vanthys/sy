@@ -25,6 +25,22 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
   @override
   Widget build(BuildContext context) {
     final trackersAsync = ref.watch(trackerListProvider);
+
+    // Clear _pendingOrder only once the stream reflects our write, not before.
+    // Clearing it in the async callback causes a flash because the Isar watch
+    // stream fires asynchronously after the write returns.
+    ref.listen<AsyncValue<List<Tracker>>>(trackerListProvider, (_, next) {
+      if (_pendingOrder == null || _pendingWriteCount > 0) return;
+      final live = (next.asData?.value ?? [])
+          .firstWhere((t) => t.id == widget.folder.id, orElse: () => widget.folder)
+          .childIds;
+      final pending = _pendingOrder!;
+      final matches = live.length == pending.length &&
+          !live.asMap().entries.any((e) => e.value != pending[e.key]);
+      if (matches || live.length != pending.length) {
+        setState(() => _pendingOrder = null);
+      }
+    });
     final liveFolder =
         trackersAsync.asData?.value.firstWhere(
           (t) => t.id == widget.folder.id,
@@ -139,12 +155,7 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
                       childIds: reordered,
                     );
 
-                    if (mounted) {
-                      setState(() {
-                        _pendingWriteCount--;
-                        if (_pendingWriteCount == 0) _pendingOrder = null;
-                      });
-                    }
+                    if (mounted) setState(() => _pendingWriteCount--);
                   },
                   itemBuilder: (context, i) {
                     final child = children[i];
@@ -234,12 +245,7 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
     final repo = await ref.read(trackerRepositoryProvider.future);
     await repo.updateTracker(widget.folder.id, childIds: newChildIds);
 
-    if (mounted) {
-      setState(() {
-        _pendingWriteCount--;
-        if (_pendingWriteCount == 0) _pendingOrder = null;
-      });
-    }
+    if (mounted) setState(() => _pendingWriteCount--);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('"${child.title}" removed from folder')),
