@@ -32,10 +32,14 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
     ref.listen<AsyncValue<List<Tracker>>>(trackerListProvider, (_, next) {
       if (_pendingOrder == null || _pendingWriteCount > 0) return;
       final live = (next.asData?.value ?? [])
-          .firstWhere((t) => t.id == widget.folder.id, orElse: () => widget.folder)
+          .firstWhere(
+            (t) => t.id == widget.folder.id,
+            orElse: () => widget.folder,
+          )
           .childIds;
       final pending = _pendingOrder!;
-      final matches = live.length == pending.length &&
+      final matches =
+          live.length == pending.length &&
           !live.asMap().entries.any((e) => e.value != pending[e.key]);
       if (matches || live.length != pending.length) {
         setState(() => _pendingOrder = null);

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '/data/database.dart';
 import 'tracker_overview_card.dart';
@@ -41,14 +40,7 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
   double _draggedHeight = 100.0;
   String? _mergeTargetId;
   bool _mergeReady = false;
-  Timer? _mergeTimer;
   final Map<String, GlobalKey> _keys = {};
-
-  @override
-  void dispose() {
-    _mergeTimer?.cancel();
-    super.dispose();
-  }
 
   GlobalKey _key(String id) => _keys.putIfAbsent(id, () => GlobalKey());
 
@@ -110,19 +102,10 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
 
     final mergeChanged = newMerge != _mergeTargetId;
     if (mergeChanged) {
-      _mergeTimer?.cancel();
-      final isFolder =
-          newMerge != null &&
-          remaining.any((t) => t.id == newMerge && t.isFolder);
       setState(() {
         _mergeTargetId = newMerge;
-        _mergeReady = isFolder; // folders accept immediately, no timer
+        _mergeReady = newMerge != null;
       });
-      if (newMerge != null && !isFolder) {
-        _mergeTimer = Timer(const Duration(milliseconds: 500), () {
-          if (mounted) setState(() => _mergeReady = true);
-        });
-      }
     }
 
     if (newInsert != _insertIndex || mergeChanged) {
@@ -131,7 +114,6 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
   }
 
   void _onDrop(Tracker dragged) {
-    _mergeTimer?.cancel();
     final mergeId = _mergeTargetId;
     final mergeReady = _mergeReady;
     final insertIndex = _insertIndex;
@@ -157,7 +139,6 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
   }
 
   void _cancelDrag() {
-    _mergeTimer?.cancel();
     setState(() {
       _draggingId = null;
       _draggingIsFolder = false;
@@ -222,7 +203,6 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
     final isDragging = tracker.id == _draggingId;
     final isMergeTarget = tracker.id == _mergeTargetId && !isDragging;
     final showGlow = isMergeTarget && _mergeReady;
-    final showHint = isMergeTarget && !_mergeReady;
 
     // Index of this card in the remaining list (excl. dragged card).
     final indexInRemaining = _remaining.indexWhere((t) => t.id == tracker.id);
@@ -248,6 +228,7 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
         ),
         LongPressDraggable<Tracker>(
           data: tracker,
+          axis: Axis.vertical,
           delay: const Duration(milliseconds: 350),
           onDragStarted: () => _startDrag(tracker),
           onDragEnd: (_) {
@@ -268,35 +249,39 @@ class _DragDropTrackerListState extends State<DragDropTrackerList> {
           // Card vanishes from its original slot; the animated gap shows
           // where it will land — same feel as ReorderableListView.
           childWhenDragging: const SizedBox.shrink(),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: showGlow
-                ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: cs.primary, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: cs.primary.withValues(alpha: 0.25),
-                        blurRadius: 16,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  )
-                : showHint
-                ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: cs.primary.withValues(alpha: 0.4),
-                      width: 1,
-                    ),
-                  )
-                : const BoxDecoration(),
-            child: TrackerOverviewCard(
-              tracker: tracker,
-              onTap: () => widget.onTap(tracker),
-              onEdit: () => widget.onEdit(tracker),
-              onDelete: () => widget.onDelete(tracker),
-            ),
+          child: Stack(
+            children: [
+              TrackerOverviewCard(
+                tracker: tracker,
+                onTap: () => widget.onTap(tracker),
+                onEdit: () => widget.onEdit(tracker),
+                onDelete: () => widget.onDelete(tracker),
+              ),
+              // Overlay border/glow only over the card body, not the
+              // 8px vertical gap that TrackerOverviewCard adds around itself.
+              Positioned.fill(
+                top: 8,
+                bottom: 8,
+                child: IgnorePointer(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: showGlow
+                        ? BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: cs.primary, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: cs.primary.withValues(alpha: 0.25),
+                                blurRadius: 16,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          )
+                        : const BoxDecoration(),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
