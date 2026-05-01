@@ -5,6 +5,13 @@ import '../data/database.dart';
 import '../data/providers.dart';
 import '../data/tracker_config.dart';
 
+/// Overridable "today" used throughout stats calculations.
+/// Override in tests to pin to a stable date and avoid flakiness.
+final todayProvider = Provider<DateTime>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+});
+
 enum TrackerStatsFamily { numeric, toggle, choice, abstinence }
 
 enum LifecycleGranularity { week, month }
@@ -126,15 +133,13 @@ final trackerStatsProvider = StreamProvider.family<TrackerStats, Tracker>((
   tracker,
 ) async* {
   final entryRepo = await ref.watch(entryRepositoryProvider.future);
+  final today = ref.watch(todayProvider);
+  final monthStart = DateTime(today.year, today.month, 1);
 
   yield* entryRepo.watchEntries(tracker.id).map((entries) {
     final meaningfulEntries =
         entries.where((entry) => entry.quantity.round() > 0).toList()
           ..sort((a, b) => a.date.compareTo(b.date));
-
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final monthStart = DateTime(today.year, today.month, 1);
 
     final createdAt = tracker.createdAt;
     final createdAtDay = DateTime(
