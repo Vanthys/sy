@@ -100,10 +100,14 @@ Map<int, int> _weekdayCounts(List<DateTime> dates) {
   return counts;
 }
 
-ProviderContainer _buildContainer(_StatsEntryRepository repository) {
+ProviderContainer _buildContainer(
+  _StatsEntryRepository repository, {
+  DateTime? today,
+}) {
   return ProviderContainer(
     overrides: [
       entryRepositoryProvider.overrideWith((ref) async => repository),
+      if (today != null) todayProvider.overrideWithValue(today),
     ],
   );
 }
@@ -127,8 +131,11 @@ void main() {
     test(
       'builds numeric stats with active-day monthly average and weekly lifecycle',
       () async {
-        final now = DateTime.now();
-        final today = DateTime(now.year, now.month, now.day);
+        // Pinned to a stable mid-month date so that:
+        //  - monthStart entries (Apr 1, 3, 10, 17) are all in the past
+        //  - exactly 4 weekly buckets exist (no 5th partial-week at month end)
+        //  - "Avg This Month" counts all 4 entries
+        final today = DateTime(2024, 4, 25);
         final monthStart = DateTime(today.year, today.month, 1);
         final tracker = _tracker(
           id: 'numeric',
@@ -141,8 +148,8 @@ void main() {
         final dates = [
           monthStart,
           _dayFrom(monthStart, 2),
-          _dayFrom(today, -10),
-          _dayFrom(today, -2),
+          _dayFrom(monthStart, 9),
+          _dayFrom(monthStart, 16),
         ];
         final repository = _StatsEntryRepository([
           _entry(id: 1, trackerId: tracker.id, date: dates[0], quantity: 2),
@@ -157,7 +164,7 @@ void main() {
           ),
         ]);
 
-        final container = _buildContainer(repository);
+        final container = _buildContainer(repository, today: today);
         addTearDown(container.dispose);
         final sub = _keepStatsAlive(container, tracker);
         addTearDown(sub.close);
@@ -181,7 +188,11 @@ void main() {
         );
         expect(stats.weekdayDistribution, _weekdayCounts(dates));
         expect(stats.lifecycle.granularity, LifecycleGranularity.week);
-        expect(stats.lifecycle.series.single.values, [6, 6, 8, 0]);
+        final lifecycleValues = stats.lifecycle.series.single.values;
+        // First 4 buckets: W1=6, W2=6, W3=8, W4=0. Long months (29–31 days)
+        // produce a 5th partial-week bucket that must also be 0.
+        expect(lifecycleValues.take(4).toList(), [6, 6, 8, 0]);
+        expect(lifecycleValues.skip(4).every((v) => v == 0.0), isTrue);
         expect(_cardByLabel(stats, 'Avg This Month').value, '5');
         expect(_cardByLabel(stats, 'Avg This Month').unit, 'km');
         expect(stats.longestStreak, 1);
@@ -191,8 +202,7 @@ void main() {
     test(
       'builds toggle stats without duplicate totals and picks most recent best bucket on tie',
       () async {
-        final now = DateTime.now();
-        final today = DateTime(now.year, now.month, now.day);
+        final today = DateTime(2024, 4, 28);
         final tracker = _tracker(
           id: 'toggle',
           createdAt: _dayFrom(today, -27),
@@ -227,7 +237,7 @@ void main() {
           ),
         ]);
 
-        final container = _buildContainer(repository);
+        final container = _buildContainer(repository, today: today);
         addTearDown(container.dispose);
         final sub = _keepStatsAlive(container, tracker);
         addTearDown(sub.close);

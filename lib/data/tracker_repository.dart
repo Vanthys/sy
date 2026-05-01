@@ -8,6 +8,15 @@ import '/data/tracker_config.dart';
 import '/data/vault_access.dart';
 import '/utils/encryption_utils.dart';
 
+List<String> _parseChildUuids(String? json) {
+  if (json == null || json.isEmpty) return const [];
+  try {
+    return (jsonDecode(json) as List).cast<String>();
+  } catch (_) {
+    return const [];
+  }
+}
+
 /// Adapts [IsarTracker] rows to the app-level [Tracker] data class.
 extension IsarTrackerConversion on IsarTracker {
   Tracker toTracker() {
@@ -24,6 +33,7 @@ extension IsarTrackerConversion on IsarTracker {
       createdAt: createdAt,
       updatedAt: updatedAt,
       sortOrder: sortOrder,
+      childIds: _parseChildUuids(childUuidsJson),
     );
   }
 }
@@ -110,12 +120,13 @@ class TrackerRepository {
   // Mutations
   // ------------------------------------------------------------------
 
-  Future<void> createTracker({
+  Future<String> createTracker({
     required String title,
     String? description,
     required StreakType streakType,
     required TrackerConfig config,
     PrivacyLevel privacyLevel = PrivacyLevel.standard,
+    List<String> childIds = const [],
   }) async {
     final now = DateTime.now();
     final encTitle = _encryptTextIfPrivate(title, privacyLevel);
@@ -123,8 +134,9 @@ class TrackerRepository {
         ? _encryptTextIfPrivate(description, privacyLevel)
         : null;
 
+    final id = const Uuid().v4();
     final row = IsarTracker()
-      ..uuid = const Uuid().v4()
+      ..uuid = id
       ..title = encTitle
       ..description = encDesc
       ..streakTypeIndex = streakType.index
@@ -134,9 +146,11 @@ class TrackerRepository {
       ..longestStreak = 0
       ..createdAt = now
       ..updatedAt = now
-      ..sortOrder = await _trackers.count();
+      ..sortOrder = await _trackers.count()
+      ..childUuidsJson = jsonEncode(childIds);
 
     await _isar.writeTxn(() => _trackers.put(row));
+    return id;
   }
 
   Future<void> updateTracker(
@@ -148,6 +162,7 @@ class TrackerRepository {
     TrackerConfig? config,
     int? currentStreak,
     int? longestStreak,
+    List<String>? childIds,
   }) async {
     final existing = await _trackers.filter().uuidEqualTo(uuid).findFirst();
     if (existing == null) return;
@@ -166,6 +181,7 @@ class TrackerRepository {
     if (config != null) existing.configJson = jsonEncode(config.toJson());
     if (currentStreak != null) existing.currentStreak = currentStreak;
     if (longestStreak != null) existing.longestStreak = longestStreak;
+    if (childIds != null) existing.childUuidsJson = jsonEncode(childIds);
     existing.updatedAt = DateTime.now();
 
     await _isar.writeTxn(() => _trackers.put(existing));
@@ -177,6 +193,18 @@ class TrackerRepository {
         await _entries.filter().trackerIdEqualTo(uuid).deleteAll();
       }
       await _trackers.filter().uuidEqualTo(uuid).deleteAll();
+
+      // Remove this tracker from any folder that references it
+      final folders = await _trackers.where().findAll();
+      for (final folder in folders) {
+        final children = _parseChildUuids(folder.childUuidsJson);
+        if (children.contains(uuid)) {
+          folder.childUuidsJson = jsonEncode(
+            children.where((id) => id != uuid).toList(),
+          );
+          await _trackers.put(folder);
+        }
+      }
     });
   }
 
