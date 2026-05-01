@@ -181,7 +181,11 @@ void main() {
         );
         expect(stats.weekdayDistribution, _weekdayCounts(dates));
         expect(stats.lifecycle.granularity, LifecycleGranularity.week);
-        expect(stats.lifecycle.series.single.values, [6, 6, 8, 0]);
+        final lifecycleValues = stats.lifecycle.series.single.values;
+        // First 4 buckets: W1=6, W2=6, W3=8, W4=0. Long months (29–31 days)
+        // produce a 5th partial-week bucket that must also be 0.
+        expect(lifecycleValues.take(4).toList(), [6, 6, 8, 0]);
+        expect(lifecycleValues.skip(4).every((v) => v == 0.0), isTrue);
         expect(_cardByLabel(stats, 'Avg This Month').value, '5');
         expect(_cardByLabel(stats, 'Avg This Month').unit, 'km');
         expect(stats.longestStreak, 1);
