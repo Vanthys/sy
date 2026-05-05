@@ -29,4 +29,7 @@ class IsarTracker {
 
   @Index()
   late int sortOrder;
+
+  /// JSON-encoded list of child tracker UUIDs (null for non-folder trackers)
+  String? childUuidsJson;
 }

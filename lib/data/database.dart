@@ -2,6 +2,7 @@
 // Pure Dart data classes replacing the Drift-generated database schema.
 // Value<T> is provided locally to preserve the existing copyWith API in tracker_repository.dart.
 
+import 'package:flutter/foundation.dart';
 import '/data/tracker_config.dart';
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,9 @@ class Tracker {
   final DateTime createdAt;
   final DateTime updatedAt;
   final int sortOrder;
+  final List<String> childIds;
+
+  bool get isFolder => config.inputType == InputType.folder;
 
   const Tracker({
     required this.id,
@@ -52,6 +56,7 @@ class Tracker {
     required this.createdAt,
     required this.updatedAt,
     this.sortOrder = 0,
+    this.childIds = const [],
   });
 
   Tracker copyWith({
@@ -66,6 +71,7 @@ class Tracker {
     DateTime? createdAt,
     DateTime? updatedAt,
     int? sortOrder,
+    List<String>? childIds,
   }) {
     return Tracker(
       id: id ?? this.id,
@@ -79,6 +85,7 @@ class Tracker {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       sortOrder: sortOrder ?? this.sortOrder,
+      childIds: childIds ?? this.childIds,
     );
   }
 
@@ -97,7 +104,8 @@ class Tracker {
           longestStreak == other.longestStreak &&
           createdAt == other.createdAt &&
           updatedAt == other.updatedAt &&
-          sortOrder == other.sortOrder;
+          sortOrder == other.sortOrder &&
+          listEquals(childIds, other.childIds);
 
   @override
   int get hashCode => Object.hash(
@@ -112,6 +120,7 @@ class Tracker {
     createdAt,
     updatedAt,
     sortOrder,
+    Object.hashAll(childIds),
   );
 }
 

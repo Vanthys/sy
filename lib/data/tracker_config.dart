@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum InputType { number, toggle, choice, slider, timer, text }
+enum InputType { number, toggle, choice, slider, timer, text, folder }
 
 class TrackerConfig {
   final double? maxValue;

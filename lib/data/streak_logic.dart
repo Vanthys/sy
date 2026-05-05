@@ -8,10 +8,13 @@ import '/data/database.dart';
 ///
 /// * **Continued** tracker: a streak day is one that HAS an entry with quantity > 0.
 /// * **Abstinence** tracker: a streak day is one that does NOT have an entry.
+/// * **Folder** tracker: has no direct entries; streaks are always (0, 0).
 (int current, int longest) computeStreaks(
   Tracker tracker,
   List<Entry> entries,
 ) {
+  if (tracker.isFolder) return (0, 0);
+
   final type = tracker.streakType;
   final createdAt = tracker.createdAt;
   final createdAtMidnight = DateTime(
