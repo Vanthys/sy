@@ -18,11 +18,39 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
 
   runApp(
-    ProviderScope(
-      overrides: [sharedPreferencesProvider.overrideWith((ref) => prefs)],
-      child: const SyApp(),
+    RestartWidget(
+      child: ProviderScope(
+        overrides: [sharedPreferencesProvider.overrideWith((ref) => prefs)],
+        child: const SyApp(),
+      ),
     ),
   );
+}
+
+class RestartWidget extends StatefulWidget {
+  const RestartWidget({super.key, required this.child});
+
+  final Widget child;
+
+  static void restartApp(BuildContext context) {
+    context.findAncestorStateOfType<_RestartWidgetState>()?.restartApp();
+  }
+
+  @override
+  State<RestartWidget> createState() => _RestartWidgetState();
+}
+
+class _RestartWidgetState extends State<RestartWidget> {
+  Key _key = UniqueKey();
+
+  void restartApp() {
+    setState(() => _key = UniqueKey());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyedSubtree(key: _key, child: widget.child);
+  }
 }
 
 /// Top-level function so [compute] can spawn it in a background isolate.
