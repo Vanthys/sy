@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -7,6 +8,8 @@ import '../data/database.dart';
 import '../data/providers.dart';
 import '../logic/vault_provider.dart';
 import '../logic/theme_provider.dart';
+import '../services/backup_service.dart';
+import '../services/vault_storage_service.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -47,38 +50,214 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _exportDatabase(BuildContext context) async {
+  Future<void> _exportBackup(BuildContext context) async {
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    String? fieldError;
+
+    final password = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Create Encrypted Backup'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Set a password to encrypt your backup. You will need this exact password to restore it — it cannot be recovered if lost.',
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Backup Password'),
+                onChanged: (_) => setDialogState(() => fieldError = null),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: confirmController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Confirm Password',
+                  errorText: fieldError,
+                ),
+                onChanged: (_) => setDialogState(() => fieldError = null),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (passwordController.text.isEmpty) {
+                  setDialogState(() => fieldError = 'Password cannot be empty');
+                  return;
+                }
+                if (passwordController.text != confirmController.text) {
+                  setDialogState(() => fieldError = 'Passwords do not match');
+                  return;
+                }
+                Navigator.pop(ctx, passwordController.text);
+              },
+              child: const Text('Create Backup'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (password == null) return;
+
     try {
       final isar = await ref.read(isarProvider.future);
       if (!mounted) return;
 
       final dbPath = isar.path;
       if (dbPath == null) throw Exception('Isar path is null');
-      final file = File(dbPath);
 
-      if (await file.exists()) {
-        if (!context.mounted) return;
-        final box = context.findRenderObject() as RenderBox?;
-        final params = ShareParams(
-          text: 'tracker database backup',
+      final vaultStorage = ref.read(vaultStorageServiceProvider);
+      final backupPath = await BackupService().createBackup(
+        isarPath: dbPath,
+        password: password,
+        vaultStorage: vaultStorage,
+      );
+
+      if (!context.mounted) return;
+
+      final box = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
           sharePositionOrigin: box != null
               ? box.localToGlobal(Offset.zero) & box.size
               : null,
-          files: [XFile(dbPath, mimeType: 'application/octet-stream')],
-        );
-        await SharePlus.instance.share(params);
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Database file not found!')),
-          );
-        }
-      }
+          files: [XFile(backupPath, mimeType: 'application/octet-stream')],
+        ),
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to export: $e')));
+        ).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _importBackup(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final filePath = result.files.single.path;
+    if (filePath == null) return;
+
+    final passwordController = TextEditingController();
+
+    if (!context.mounted) return;
+    final password = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore Backup'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter the backup password to decrypt and restore.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Backup Password'),
+              onSubmitted: (val) => Navigator.pop(ctx, val),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, passwordController.text),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (password == null || password.isEmpty) return;
+
+    if (!context.mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Overwrite Current Data?'),
+        content: const Text(
+          'This will replace all current trackers and entries with the backup. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final isar = await ref.read(isarProvider.future);
+      final dbPath = isar.path;
+      if (dbPath == null) throw Exception('Cannot determine database path.');
+
+      await isar.close();
+
+      final vaultStorage = ref.read(vaultStorageServiceProvider);
+      final restoreResult = await BackupService().restoreBackup(
+        backupPath: filePath,
+        password: password,
+        targetIsarPath: dbPath,
+        vaultStorage: vaultStorage,
+      );
+
+      if (!context.mounted) return;
+
+      final message = restoreResult.hasGeneralVault
+          ? 'Backup restored. Restart the app, then enter your vault PIN to access your private trackers.'
+          : 'Backup restored. Please restart the app.';
+
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Restore Complete'),
+          content: Text(message),
+          actions: [
+            FilledButton(
+              onPressed: () => exit(0),
+              child: const Text('Restart App'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
       }
     }
   }
@@ -284,10 +463,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         children: [
           ListTile(
-            title: const Text('Export Database'),
-            subtitle: const Text('Backup your trackers and entries locally.'),
+            title: const Text('Create Backup'),
+            subtitle: const Text(
+              'Export an encrypted backup of your trackers and entries.',
+            ),
+            leading: const Icon(Icons.upload),
+            onTap: () => _exportBackup(context),
+          ),
+          ListTile(
+            title: const Text('Restore Backup'),
+            subtitle: const Text('Import a backup file to restore your data.'),
             leading: const Icon(Icons.download),
-            onTap: () => _exportDatabase(context),
+            onTap: () => _importBackup(context),
           ),
           const Divider(),
           _buildAppearanceSection(context, ref),
