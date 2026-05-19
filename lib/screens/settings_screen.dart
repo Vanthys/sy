@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p;
+import '../main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../data/database.dart';
 import '../data/providers.dart';
@@ -55,60 +56,71 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final confirmController = TextEditingController();
     String? fieldError;
 
+    void Function(void Function())? setDialogStateRef;
+
+    bool validate() {
+      if (passwordController.text.isEmpty) {
+        setDialogStateRef?.call(() => fieldError = 'Password cannot be empty');
+        return false;
+      }
+      if (passwordController.text != confirmController.text) {
+        setDialogStateRef?.call(() => fieldError = 'Passwords do not match');
+        return false;
+      }
+      return true;
+    }
+
     final password = await showDialog<String>(
       context: context,
       barrierDismissible: true,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Create Encrypted Backup'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Set a password to encrypt your backup. You will need this exact password to restore it — it cannot be recovered if lost.',
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'Backup Password'),
-                onChanged: (_) => setDialogState(() => fieldError = null),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: confirmController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Confirm Password',
-                  errorText: fieldError,
+        builder: (ctx, setDialogState) {
+          setDialogStateRef = setDialogState;
+          return AlertDialog(
+            title: const Text('Create Encrypted Backup'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Set a password to encrypt your backup. You will need this exact password to restore it — it cannot be recovered if lost.',
                 ),
-                onChanged: (_) => setDialogState(() => fieldError = null),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Backup Password',
+                  ),
+                  onChanged: (_) => setDialogState(() => fieldError = null),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: confirmController,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    errorText: fieldError,
+                  ),
+                  onChanged: (_) => setDialogState(() => fieldError = null),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (validate()) Navigator.pop(ctx, passwordController.text);
+                },
+                child: const Text('Save'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (passwordController.text.isEmpty) {
-                  setDialogState(() => fieldError = 'Password cannot be empty');
-                  return;
-                }
-                if (passwordController.text != confirmController.text) {
-                  setDialogState(() => fieldError = 'Passwords do not match');
-                  return;
-                }
-                Navigator.pop(ctx, passwordController.text);
-              },
-              child: const Text('Create Backup'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
 
@@ -130,15 +142,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       if (!context.mounted) return;
 
-      final box = context.findRenderObject() as RenderBox?;
-      await SharePlus.instance.share(
-        ShareParams(
-          sharePositionOrigin: box != null
-              ? box.localToGlobal(Offset.zero) & box.size
-              : null,
-          files: [XFile(backupPath, mimeType: 'application/octet-stream')],
-        ),
+      final backupBytes = await File(backupPath).readAsBytes();
+
+      final savePath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save backup',
+        fileName: p.basename(backupPath),
+        initialDirectory: Platform.isAndroid
+            ? '/storage/emulated/0/Download'
+            : null,
+        bytes: backupBytes,
       );
+      if (savePath == null) return;
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup successfull.')),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
@@ -247,7 +267,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           content: Text(message),
           actions: [
             FilledButton(
-              onPressed: () => exit(0),
+              onPressed: () {
+                Navigator.pop(ctx);
+                RestartWidget.restartApp(context);
+              },
               child: const Text('Restart App'),
             ),
           ],
