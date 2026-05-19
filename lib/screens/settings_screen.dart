@@ -153,6 +153,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         bytes: backupBytes,
       );
       if (savePath == null) return;
+      File(backupPath).deleteSync(recursive: false);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
