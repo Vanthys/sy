@@ -26,6 +26,7 @@ class BackupService {
     required String isarPath,
     required String password,
     required VaultStorageService vaultStorage,
+    Directory? outputDir,
   }) async {
     final generalHash = await vaultStorage.readGeneralHash();
     final generalSalt = await vaultStorage.readGeneralSalt();
@@ -57,7 +58,7 @@ class BackupService {
     final key = EncryptionUtils.deriveKeyFromPin(password);
     final encrypted = EncryptionUtils.encryptText(base64Encode(zipBytes), key);
 
-    final tempDir = await getTemporaryDirectory();
+    final tempDir = outputDir ?? await getTemporaryDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final backupFile = File('${tempDir.path}/sy3_backup_$timestamp.sy3backup');
     await backupFile.writeAsString(encrypted);

@@ -156,9 +156,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       File(backupPath).deleteSync(recursive: false);
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Backup successfull.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Backup successfull.')));
       }
     } catch (e) {
       if (context.mounted) {
