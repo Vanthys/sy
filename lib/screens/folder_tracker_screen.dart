@@ -138,8 +138,8 @@ class _FolderTrackerScreenState extends ConsumerState<FolderTrackerScreen> {
                   ),
                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 24),
                   itemCount: children.length,
-                  onReorder: (oldIndex, newIndex) async {
-                    if (newIndex > oldIndex) newIndex--;
+                  onReorderItem: (oldIndex, newIndex) async {
+                    //if (newIndex > oldIndex) newIndex--;
                     if (oldIndex == newIndex) return;
 
                     final reordered = List<String>.from(childOrder);
