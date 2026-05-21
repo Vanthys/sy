@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../logic/theme_provider.dart';
 import '../logic/vault_provider.dart';
+import 'settings/about_settings_screen.dart';
 import 'settings/appearance_settings_screen.dart';
 import 'settings/backup_settings_screen.dart';
 import 'settings/vault_settings_screen.dart';
@@ -70,6 +71,22 @@ class SettingsScreen extends ConsumerWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => const BackupSettingsScreen(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: 'About',
+            tiles: [
+              _NavTile(
+                icon: Icons.info_outlined,
+                title: 'About SY3',
+                subtitle: 'Version, licenses',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AboutSettingsScreen(),
                   ),
                 ),
               ),
