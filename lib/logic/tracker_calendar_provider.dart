@@ -7,6 +7,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../data/database.dart';
 import '../data/providers.dart';
 import '../data/tracker_config.dart';
+import '../logic/theme_provider.dart';
 import '../utils/color_utils.dart';
 
 part 'tracker_calendar_provider.g.dart';
@@ -44,7 +45,8 @@ class MonthData {
 
   final DateTime monthStart;
   final String label;
-  final List<DayData> days;
+  // Nullable: null entries are empty padding cells (relevant for reversed mode)
+  final List<DayData?> days;
 }
 
 class CalendarState {
@@ -82,7 +84,6 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
   List<Entry> _entries = [];
   late List<Color> _streakColors;
   late List<Color> _intensityColors;
-
   @override
   CalendarState build(Tracker tracker) {
     _tracker = tracker;
@@ -144,10 +145,29 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
             _latestMonth.add(const Duration(days: 31)),
           )
           .listen((data) {
+            // Always update on first load; after that skip if the optimistic
+            // update already reflected this data.
+            if (!state.isLoading && _entriesEqual(data)) return;
             _entries = data;
             _updateState();
           });
     });
+  }
+
+  bool _entriesEqual(List<Entry> incoming) {
+    if (incoming.length != _entries.length) return false;
+    // Compare by date->quantity only: ignore sort order, id, and timestamps so
+    // the stream-triggered rebuild is suppressed when the optimistic update
+    // already reflects the correct data.
+    final current = {
+      for (final e in _entries)
+        DateTime(e.date.year, e.date.month, e.date.day): e.quantity,
+    };
+    for (final e in incoming) {
+      final key = DateTime(e.date.year, e.date.month, e.date.day);
+      if (current[key] != e.quantity) return false;
+    }
+    return true;
   }
 
   void _updateState() {
@@ -207,6 +227,7 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
       current = DateTime(current.year, current.month, current.day - 1);
     }
 
+    final reversed = ref.read(reverseMonthOrderProvider);
     final months = <MonthData>[];
     var month = _latestMonth;
 
@@ -219,19 +240,14 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
           : monthEnd;
       final visibleDaysCount = maxVisibleDate.day;
 
-      final days = List.generate(visibleDaysCount, (index) {
-        final date = DateTime(
-          month.year,
-          month.month,
-          visibleDaysCount - index,
-        );
+      DayData buildDay(int dayNum) {
+        final date = DateTime(month.year, month.month, dayNum);
         final entry = entryMap[date];
         final amount = entry?.quantity ?? 0.0;
         final inStreak = streakDatesSet.contains(date);
 
         var isStart = false;
         var isEnd = false;
-
         if (inStreak) {
           final yesterday = DateTime(date.year, date.month, date.day - 1);
           final tomorrow = DateTime(date.year, date.month, date.day + 1);
@@ -264,7 +280,6 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
               );
 
         var gradient = _streakColors;
-
         if (inStreak && _tracker.config.inputType == InputType.choice) {
           final yesterday = DateTime(date.year, date.month, date.day - 1);
           final tomorrow = DateTime(date.year, date.month, date.day + 1);
@@ -285,10 +300,8 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
 
           final prevColor = isStart ? dayColor : getChoiceColor(yesterday);
           final nextColor = isEnd ? dayColor : getChoiceColor(tomorrow);
-
           final leftColor = Color.lerp(nextColor, dayColor, 0.5) ?? dayColor;
           final rightColor = Color.lerp(prevColor, dayColor, 0.5) ?? dayColor;
-
           gradient = [leftColor, dayColor, rightColor];
         }
 
@@ -303,7 +316,26 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
           isStreakStart: isStart,
           isStreakEnd: isEnd,
         );
-      });
+      }
+
+      final List<DayData?> days;
+      if (!reversed) {
+        // Newest day first (index 0 = today or last day of month).
+        days = List.generate(
+          visibleDaysCount,
+          (i) => buildDay(visibleDaysCount - i),
+        );
+      } else {
+        // Oldest-first: day 1 at top-left, current day at bottom-right.
+        // Trailing nulls pad the last row to a full 7 so the grid aligns.
+        days = List.generate(visibleDaysCount, (i) => buildDay(i + 1));
+        final remainder = visibleDaysCount % 7;
+        if (remainder != 0) {
+          for (var p = remainder; p < 7; p++) {
+            days.add(null);
+          }
+        }
+      }
 
       months.add(
         MonthData(
@@ -316,6 +348,9 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
       month = DateTime(month.year, month.month - 1, 1);
     }
 
+    // Reversed mode uses a normal (non-reversed) scroll view with oldest month
+    // at the top, so the months list must be oldest-first.
+    if (reversed) return months.reversed.toList();
     return months;
   }
 
@@ -342,19 +377,21 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
 
     _setupStream();
 
-    state = state.copyWith(isLoadingMore: false);
+    // Regenerate months directly from the updated _entries so the new months
+    // are visible immediately. _setupStream fires with the same data and
+    // _entriesEqual will skip the duplicate rebuild.
+    state = state.copyWith(months: _generateMonthsData(), isLoadingMore: false);
   }
 
   Future<void> saveEntry(DateTime date, double amount) async {
     final normalized = DateTime(date.year, date.month, date.day);
     final now = DateTime.now();
     final index = _entries.indexWhere(
-      (entry) =>
-          entry.date.year == normalized.year &&
-          entry.date.month == normalized.month &&
-          entry.date.day == normalized.day,
+      (e) =>
+          e.date.year == normalized.year &&
+          e.date.month == normalized.month &&
+          e.date.day == normalized.day,
     );
-
     if (index != -1) {
       if (amount > 0) {
         final old = _entries[index];
@@ -382,7 +419,6 @@ class TrackerCalendarNotifier extends _$TrackerCalendarNotifier {
         ),
       );
     }
-
     _updateState();
 
     final entryRepo = await ref.read(entryRepositoryProvider.future);

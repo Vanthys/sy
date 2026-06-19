@@ -112,3 +112,56 @@ abstract class _$SeedColorNotifier extends $Notifier<Color?> {
     element.handleCreate(ref, build);
   }
 }
+
+@ProviderFor(ReverseMonthOrderNotifier)
+final reverseMonthOrderProvider = ReverseMonthOrderNotifierProvider._();
+
+final class ReverseMonthOrderNotifierProvider
+    extends $NotifierProvider<ReverseMonthOrderNotifier, bool> {
+  ReverseMonthOrderNotifierProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'reverseMonthOrderProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$reverseMonthOrderNotifierHash();
+
+  @$internal
+  @override
+  ReverseMonthOrderNotifier create() => ReverseMonthOrderNotifier();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$reverseMonthOrderNotifierHash() =>
+    r'e3b4d22e3d19389a147bad9d0dad1c7ffd69a87f';
+
+abstract class _$ReverseMonthOrderNotifier extends $Notifier<bool> {
+  bool build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<bool, bool>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<bool, bool>,
+              bool,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}

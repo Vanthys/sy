@@ -60,7 +60,7 @@ final class TrackerCalendarNotifierProvider
 }
 
 String _$trackerCalendarNotifierHash() =>
-    r'd484905ce0af5c0b043cbc221debbb532e7e9821';
+    r'b7eae62483fd746b339de57d1dabf6b6b1f741c0';
 
 final class TrackerCalendarNotifierFamily extends $Family
     with

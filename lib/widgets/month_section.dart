@@ -15,6 +15,7 @@ class DayBlock extends StatelessWidget {
     this.streakColors,
     required this.columnIndex,
     this.inputType = InputType.number,
+    this.reversed = false,
   });
 
   final DayData dayData;
@@ -24,6 +25,7 @@ class DayBlock extends StatelessWidget {
   final List<String>? streakColors;
   final int columnIndex;
   final InputType inputType;
+  final bool reversed;
 
   @override
   Widget build(BuildContext context) {
@@ -39,15 +41,19 @@ class DayBlock extends StatelessWidget {
 
     final textColor = cs.onSurfaceVariant;
 
+    // In reversed mode rows go oldest-left -> newest-right, so isStreakEnd
+    // (newest day) lands on the right and isStreakStart (oldest) on the left
+    // the opposite of the default newest-first layout.
+    final capLeft = reversed ? dayData.isStreakStart : dayData.isStreakEnd;
+    final capRight = reversed ? dayData.isStreakEnd : dayData.isStreakStart;
+
     final borderRadius = BorderRadius.horizontal(
-      left: dayData.isStreakEnd ? const Radius.circular(8) : Radius.zero,
-      right: dayData.isStreakStart ? const Radius.circular(8) : Radius.zero,
+      left: capLeft ? const Radius.circular(8) : Radius.zero,
+      right: capRight ? const Radius.circular(8) : Radius.zero,
     );
 
-    final isLeftConnected =
-        inStreak && !dayData.isStreakEnd && columnIndex != 0;
-    final isRightConnected =
-        inStreak && !dayData.isStreakStart && columnIndex != 6;
+    final isLeftConnected = inStreak && !capLeft && columnIndex != 0;
+    final isRightConnected = inStreak && !capRight && columnIndex != 6;
 
     return Stack(
       clipBehavior: Clip.none,

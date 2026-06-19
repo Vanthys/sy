@@ -243,7 +243,7 @@ DayData _findDay(ProviderContainer container, Tracker tracker, DateTime date) {
 
   for (final month in state.months) {
     for (final day in month.days) {
-      if (day.date == normalized) {
+      if (day != null && day.date == normalized) {
         return day;
       }
     }

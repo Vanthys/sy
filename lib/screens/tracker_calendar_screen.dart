@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/providers.dart';
 import '../widgets/tracker_calendar.dart';
 import '../widgets/tracker_stats/tracker_stats_view.dart';
 import '../logic/vault_provider.dart';
@@ -47,6 +48,17 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch the live tracker so edits (title, privacy level, etc.) are
+    // reflected immediately without a screen reload.
+    final trackerList = ref.watch(trackerListProvider);
+    final tracker = trackerList.when(
+      data: (list) =>
+          list.where((t) => t.id == widget.tracker.id).firstOrNull ??
+          widget.tracker,
+      loading: () => widget.tracker,
+      error: (_, _) => widget.tracker,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -54,15 +66,15 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
           children: [
             Flexible(
               child: Text(
-                _currentPage == 0 ? widget.tracker.title : 'Statistics',
+                _currentPage == 0 ? tracker.title : 'Statistics',
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             if (_currentPage == 0 &&
-                widget.tracker.privacyLevel != PrivacyLevel.standard) ...[
+                tracker.privacyLevel != PrivacyLevel.standard) ...[
               const SizedBox(width: 6),
               Icon(
-                widget.tracker.privacyLevel == PrivacyLevel.vault
+                tracker.privacyLevel == PrivacyLevel.vault
                     ? Icons.lock_outline
                     : Icons.visibility_off,
                 size: 18,
@@ -91,6 +103,9 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
         controller: _pageController,
         onPageChanged: (page) => setState(() => _currentPage = page),
         children: [
+          // Use widget.tracker (stable identity) so the calendar provider
+          // isn't recreated when updateTrackerStreaks writes updatedAt to
+          // the tracker collection and trackerListProvider re-emits.
           TrackerCalendar(tracker: widget.tracker),
           TrackerStatsView(tracker: widget.tracker),
         ],
