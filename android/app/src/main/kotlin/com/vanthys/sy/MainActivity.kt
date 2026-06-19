@@ -1,4 +1,4 @@
-package com.vanthys.sy3
+package com.vanthys.sy
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

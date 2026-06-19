@@ -41,7 +41,7 @@ class _AboutSettingsScreenState extends State<AboutSettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('SY3', style: text.headlineSmall),
+                Text('sy', style: text.headlineSmall),
                 const SizedBox(height: 4),
                 Text(
                   _version.isEmpty ? '' : _version,
@@ -68,7 +68,7 @@ class _AboutSettingsScreenState extends State<AboutSettingsScreen> {
             onTap: () {
               showLicensePage(
                 context: context,
-                applicationName: 'SY3',
+                applicationName: 'sy',
                 applicationVersion: _version,
               );
             },

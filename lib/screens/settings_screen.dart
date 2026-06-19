@@ -81,7 +81,7 @@ class SettingsScreen extends ConsumerWidget {
             tiles: [
               _NavTile(
                 icon: Icons.info_outlined,
-                title: 'About SY3',
+                title: 'About sy',
                 subtitle: 'Version, licenses',
                 onTap: () => Navigator.push(
                   context,
