@@ -53,7 +53,7 @@ class BackupService {
       ArchiveFile(_vaultConfigFileName, vaultBytes.length, vaultBytes),
     );
 
-    final zipBytes = ZipEncoder().encode(archive)!;
+    final zipBytes = ZipEncoder().encode(archive);
 
     final key = EncryptionUtils.deriveKeyFromPin(password);
     final encrypted = EncryptionUtils.encryptText(base64Encode(zipBytes), key);
