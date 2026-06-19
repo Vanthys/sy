@@ -60,6 +60,7 @@ class _VaultSettingsScreenState extends ConsumerState<VaultSettingsScreen> {
         return;
       }
 
+      if (!mounted) return;
       await _showNewPinDialog(isSecret, oldPin: oldPin);
     } else {
       await _showNewPinDialog(isSecret);
