@@ -1,17 +1,13 @@
 import 'dart:ui';
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:json_theme/json_theme.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'dart:convert';
-
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/tracker_list_screen.dart';
 import 'logic/theme_provider.dart';
 import 'logic/vault_provider.dart';
+import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,12 +49,6 @@ class _RestartWidgetState extends State<RestartWidget> {
   }
 }
 
-/// Top-level function so [compute] can spawn it in a background isolate.
-ThemeData _decodeThemeData(String themeStr) {
-  final themeJson = jsonDecode(themeStr);
-  return ThemeDecoder.decodeThemeData(themeJson)!;
-}
-
 class SyApp extends ConsumerStatefulWidget {
   const SyApp({super.key});
 
@@ -67,27 +57,19 @@ class SyApp extends ConsumerStatefulWidget {
 }
 
 class _SyAppState extends ConsumerState<SyApp> {
-  ThemeData? _lightTheme;
-  ThemeData? _darkTheme;
-  ThemeData? _amoledTheme;
-  bool _isLoading = true;
   AppLifecycleListener? _lifecycleListener;
 
   @override
   void initState() {
     super.initState();
-    _loadThemes();
-
     _lifecycleListener = AppLifecycleListener(
       onPause: _lockVault,
       onHide: _lockVault,
-      //onInactive: _lockVault, // a bit extreme for security.
       onDetach: _lockVault,
     );
   }
 
   void _lockVault() {
-    // If the provider hasn't been initialized yet, this might throw, but since we ensure it earlier it should be safe.
     ref.read(vaultProvider.notifier).lockVault();
   }
 
@@ -97,104 +79,69 @@ class _SyAppState extends ConsumerState<SyApp> {
     super.dispose();
   }
 
-  Future<void> _loadThemes() async {
-    try {
-      final themes = await Future.wait([
-        _loadTheme('assets/light_theme.json'),
-        _loadTheme('assets/dark_theme.json'),
-      ]);
-
-      if (mounted) {
-        setState(() {
-          _lightTheme = themes[0];
-          _darkTheme = themes[1];
-          _amoledTheme = _generateAmoledTheme(themes[1]);
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading themes: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<ThemeData> _loadTheme(String path) async {
-    final themeStr = await rootBundle.loadString(path);
-    // Decode JSON + construct ThemeData in a background isolate — keeps the
-    // main thread free and the startup spinner animation smooth.
-    final base = await compute(_decodeThemeData, themeStr);
-
-    final cleanBaseTextTheme = ThemeData(brightness: base.brightness).textTheme;
-    final typographyTextTheme = GoogleFonts.jetBrainsMonoTextTheme(
-      cleanBaseTextTheme,
-    );
-
-    return base.copyWith(textTheme: typographyTextTheme);
-  }
-
-  ThemeData _generateAmoledTheme(ThemeData baseDark) {
-    return baseDark.copyWith(
-      scaffoldBackgroundColor: Colors.black,
-      colorScheme: baseDark.colorScheme.copyWith(
-        surface: Colors.black,
-        surfaceContainerLowest: Colors.black,
-        surfaceContainerLow: const Color(0xFF0A0A0A),
-        surfaceContainer: const Color(0xFF111111),
-        surfaceContainerHigh: const Color(0xFF1A1A1A),
-        surfaceContainerHighest: const Color(0xFF222222),
-      ),
-      appBarTheme: baseDark.appBarTheme.copyWith(
-        backgroundColor: Colors.black,
-        surfaceTintColor: Colors.transparent,
-      ),
-      bottomSheetTheme: baseDark.bottomSheetTheme.copyWith(
-        backgroundColor: const Color(0xFF0A0A0A),
-      ),
-      dialogTheme: baseDark.dialogTheme.copyWith(
-        backgroundColor: const Color(0xFF0A0A0A),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const MaterialApp(
-        home: Scaffold(body: Center(child: CircularProgressIndicator())),
-      );
-    }
-
     final themeMode = ref.watch(themeProvider);
+    final customSeed = ref.watch(seedColorProvider);
 
-    ThemeData? activeDarkTheme = _darkTheme ?? ThemeData.dark();
-    if (themeMode == AppThemeMode.amoled) {
-      activeDarkTheme = _amoledTheme;
-    }
+    return DynamicColorBuilder(
+      builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
+        final ColorScheme lightScheme;
+        final ColorScheme darkScheme;
 
-    ThemeMode activeThemeMode = ThemeMode.system;
-    switch (themeMode) {
-      case AppThemeMode.light:
-        activeThemeMode = ThemeMode.light;
-        break;
-      case AppThemeMode.dark:
-      case AppThemeMode.amoled:
-        activeThemeMode = ThemeMode.dark;
-        break;
-      case AppThemeMode.system:
-        activeThemeMode = ThemeMode.system;
-        break;
-    }
+        final ColorScheme baseLight;
+        final ColorScheme baseDark;
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: true,
-      scrollBehavior: AppScrollBehavior(),
-      title: 'SY',
-      theme: _lightTheme ?? ThemeData.light(),
-      darkTheme: activeDarkTheme,
-      themeMode: activeThemeMode,
-      home: const TrackerListScreen(),
+        if (customSeed != null) {
+          baseLight = ColorScheme.fromSeed(
+            seedColor: customSeed,
+            brightness: Brightness.light,
+          );
+          baseDark = ColorScheme.fromSeed(
+            seedColor: customSeed,
+            brightness: Brightness.dark,
+          );
+        } else if (lightDynamic != null && darkDynamic != null) {
+          baseLight = lightDynamic.harmonized();
+          baseDark = darkDynamic.harmonized();
+        } else {
+          baseLight = ColorScheme.fromSeed(
+            seedColor: kFallbackSeed,
+            brightness: Brightness.light,
+          );
+          baseDark = ColorScheme.fromSeed(
+            seedColor: kFallbackSeed,
+            brightness: Brightness.dark,
+          );
+        }
+
+        lightScheme = withStableSurfaces(baseLight, Brightness.light);
+        darkScheme = withStableSurfaces(baseDark, Brightness.dark);
+
+        final lightTheme = buildTheme(lightScheme);
+        final darkTheme = buildTheme(darkScheme);
+        final amoledTheme = buildAmoledTheme(darkTheme);
+
+        final activeDarkTheme = themeMode == AppThemeMode.amoled
+            ? amoledTheme
+            : darkTheme;
+
+        final activeThemeMode = switch (themeMode) {
+          AppThemeMode.light => ThemeMode.light,
+          AppThemeMode.dark || AppThemeMode.amoled => ThemeMode.dark,
+          AppThemeMode.system => ThemeMode.system,
+        };
+
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          scrollBehavior: AppScrollBehavior(),
+          title: 'SY',
+          theme: lightTheme,
+          darkTheme: activeDarkTheme,
+          themeMode: activeThemeMode,
+          home: const TrackerListScreen(),
+        );
+      },
     );
   }
 }

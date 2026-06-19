@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,6 +11,7 @@ class ThemePreferencesService {
 
   final SharedPreferences _prefs;
   static const _themeKey = 'app_theme_mode';
+  static const _seedColorKey = 'app_seed_color';
 
   String? loadThemeName() {
     return _prefs.getString(_themeKey);
@@ -17,6 +19,19 @@ class ThemePreferencesService {
 
   Future<void> setThemeName(String modeName) async {
     await _prefs.setString(_themeKey, modeName);
+  }
+
+  Color? loadSeedColor() {
+    final value = _prefs.getInt(_seedColorKey);
+    return value != null ? Color(value) : null;
+  }
+
+  Future<void> setSeedColor(Color? color) async {
+    if (color == null) {
+      await _prefs.remove(_seedColorKey);
+    } else {
+      await _prefs.setInt(_seedColorKey, color.toARGB32());
+    }
   }
 }
 

@@ -60,3 +60,55 @@ abstract class _$ThemeNotifier extends $Notifier<AppThemeMode> {
     element.handleCreate(ref, build);
   }
 }
+
+@ProviderFor(SeedColorNotifier)
+final seedColorProvider = SeedColorNotifierProvider._();
+
+final class SeedColorNotifierProvider
+    extends $NotifierProvider<SeedColorNotifier, Color?> {
+  SeedColorNotifierProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'seedColorProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$seedColorNotifierHash();
+
+  @$internal
+  @override
+  SeedColorNotifier create() => SeedColorNotifier();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(Color? value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<Color?>(value),
+    );
+  }
+}
+
+String _$seedColorNotifierHash() => r'b8e15d2d1a296c098c6c30bb4e3587e095abd9c2';
+
+abstract class _$SeedColorNotifier extends $Notifier<Color?> {
+  Color? build();
+  @$mustCallSuper
+  @override
+  void runBuild() {
+    final ref = this.ref as $Ref<Color?, Color?>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<Color?, Color?>,
+              Color?,
+              Object?,
+              Object?
+            >;
+    element.handleCreate(ref, build);
+  }
+}

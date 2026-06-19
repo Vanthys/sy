@@ -1,84 +1,60 @@
-// lib/theme.dart
 import 'package:flutter/material.dart';
 
-/// Core color palette (intensity theme)
-const Color kPrimary = Color(0xFF9B2FAE); // deep purple-magenta
-const Color kSecondary = Color.fromARGB(
-  255,
-  53,
-  144,
-  229,
-); // intense red accent
-const Color kSurfaceDark = Color(0xFF121212); // very dark surface background
-const Color kSurfaceDarkElevated = Color(0xFF333333);
+const Color kFallbackSeed = Color(0xFF515B92);
 
-const Color kSurfaceLight = Color(0xFFFDFDFD); // soft light background
-const Color kSurfaceLightElevated = Color(0xFFAAAAAA);
+/// Replaces the surface hierarchy of [scheme] with surfaces generated from
+/// [kFallbackSeed], guaranteeing visible tonal contrast regardless of how
+/// saturated or neutral the accent seed is.
+ColorScheme withStableSurfaces(ColorScheme scheme, Brightness brightness) {
+  final surfaces = ColorScheme.fromSeed(
+    seedColor: kFallbackSeed,
+    brightness: brightness,
+  );
+  return scheme.copyWith(
+    surface: surfaces.surface,
+    surfaceContainerLowest: surfaces.surfaceContainerLowest,
+    surfaceContainerLow: surfaces.surfaceContainerLow,
+    surfaceContainer: surfaces.surfaceContainer,
+    surfaceContainerHigh: surfaces.surfaceContainerHigh,
+    surfaceContainerHighest: surfaces.surfaceContainerHighest,
+  );
+}
 
-/// Light theme
-final ColorScheme lightColorScheme = ColorScheme(
-  brightness: Brightness.light,
-  primary: kPrimary,
-  onPrimary: Colors.white,
-  secondary: kSecondary,
-  onSecondary: Colors.white,
-  surface: kSurfaceLight,
-  surfaceBright: kSurfaceLightElevated,
-  onSurface: Colors.black,
-  error: Colors.red.shade700,
-  onError: Colors.white,
-  primaryContainer: kPrimary.withAlpha(30),
-  onPrimaryContainer: kPrimary,
-  secondaryContainer: kSecondary.withAlpha(30),
-  onSecondaryContainer: kSecondary,
-  outline: Colors.grey.shade400,
-);
+ThemeData buildTheme(ColorScheme colorScheme) {
+  return ThemeData(
+    colorScheme: colorScheme,
+    useMaterial3: true,
+    fontFamily: 'JetBrainsMono',
+    scaffoldBackgroundColor: colorScheme.surfaceContainerLowest,
+    cardTheme: CardThemeData(color: colorScheme.surfaceContainerHigh),
+    appBarTheme: AppBarTheme(
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      foregroundColor: colorScheme.onSurface,
+      surfaceTintColor: Colors.transparent,
+    ),
+  );
+}
 
-// Dark color scheme (intense + moody)
-final ColorScheme darkColorScheme = ColorScheme(
-  brightness: Brightness.dark,
-  primary: kPrimary,
-  onPrimary: Colors.white,
-  secondary: kSecondary,
-  onSecondary: Colors.white,
-  surface: kSurfaceDark,
-  surfaceBright: kSurfaceDarkElevated,
-  onSurface: Colors.white,
-  error: Colors.red.shade400,
-  onError: Colors.black,
-  primaryContainer: kPrimary.withAlpha(50),
-  onPrimaryContainer: Colors.white,
-  secondaryContainer: kSecondary.withAlpha(50),
-  onSecondaryContainer: Colors.white,
-  outline: Colors.grey.shade700,
-);
-
-final ThemeData lightTheme = ThemeData(
-  colorScheme: lightColorScheme,
-  useMaterial3: true,
-  scaffoldBackgroundColor: lightColorScheme.surface,
-  appBarTheme: AppBarTheme(
-    backgroundColor: lightColorScheme.surface,
-    foregroundColor: lightColorScheme.onSurface,
-    elevation: 0,
-  ),
-  floatingActionButtonTheme: FloatingActionButtonThemeData(
-    backgroundColor: lightColorScheme.primary,
-    foregroundColor: lightColorScheme.onPrimary,
-  ),
-);
-
-final ThemeData darkTheme = ThemeData(
-  colorScheme: darkColorScheme,
-  useMaterial3: true,
-  scaffoldBackgroundColor: darkColorScheme.surface,
-  appBarTheme: AppBarTheme(
-    backgroundColor: darkColorScheme.surface,
-    foregroundColor: darkColorScheme.onSurface,
-    elevation: 0,
-  ),
-  floatingActionButtonTheme: FloatingActionButtonThemeData(
-    backgroundColor: darkColorScheme.primary,
-    foregroundColor: darkColorScheme.onPrimary,
-  ),
-);
+ThemeData buildAmoledTheme(ThemeData darkTheme) {
+  return darkTheme.copyWith(
+    scaffoldBackgroundColor: Colors.black,
+    colorScheme: darkTheme.colorScheme.copyWith(
+      surface: Colors.black,
+      surfaceContainerLowest: Colors.black,
+      surfaceContainerLow: const Color(0xFF0A0A0A),
+      surfaceContainer: const Color(0xFF111111),
+      surfaceContainerHigh: const Color(0xFF1A1A1A),
+      surfaceContainerHighest: const Color(0xFF222222),
+    ),
+    appBarTheme: darkTheme.appBarTheme.copyWith(
+      backgroundColor: Colors.black,
+      surfaceTintColor: Colors.transparent,
+    ),
+    bottomSheetTheme: darkTheme.bottomSheetTheme.copyWith(
+      backgroundColor: const Color(0xFF0A0A0A),
+    ),
+    dialogTheme: darkTheme.dialogTheme.copyWith(
+      backgroundColor: const Color(0xFF0A0A0A),
+    ),
+  );
+}
