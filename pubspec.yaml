@@ -43,18 +43,11 @@ dependencies:
   collection: ^1.19.1
   intl: ^0.20.2
   sleek_circular_slider: ^2.1.0
-  #json_theme: ^9.0.1+2
-  json_theme:
-    git:
-      url: https://github.com/laurencetroyv/json_theme.git
-      path: packages/json_theme
-      ref: main
-  material_color_utilities: 0.13.0
   flutter_launcher_icons: ^0.14.4
+  dynamic_color: ^1.7.0
   flutter_riverpod: ^3.3.1
   riverpod_annotation: ^4.0.2
   share_plus: ^13.0.0
-  google_fonts: ^8.0.2
   flutter_colorpicker: ^1.1.0
   encrypt: ^5.0.3
   shared_preferences: ^2.5.5
@@ -94,19 +87,10 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   fonts:
-    - family: RobotoMono
+    - family: JetBrainsMono
       fonts:
-        - asset: assets/fonts/RobotoMono-Regular.ttf
-        - asset: assets/fonts/RobotoMono-Bold.ttf
-    - family: BebasNeue
-      fonts: 
-        - asset: assets/fonts/BebasNeue-Regular.ttf
-    - family: NovaMono
-      fonts:
-        - asset: assets/fonts/NovaMono-Regular.ttf
+        - asset: assets/fonts/JetBrainsMono/JetBrainsMono[wght].ttf
   assets:
-    - assets/dark_theme.json
-    - assets/light_theme.json
     - assets/icon/
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../services/theme_preferences_service.dart';
@@ -22,5 +23,18 @@ class ThemeNotifier extends _$ThemeNotifier {
   Future<void> setTheme(AppThemeMode mode) async {
     state = mode;
     await ref.read(themePreferencesServiceProvider).setThemeName(mode.name);
+  }
+}
+
+@Riverpod(keepAlive: true)
+class SeedColorNotifier extends _$SeedColorNotifier {
+  @override
+  Color? build() {
+    return ref.watch(themePreferencesServiceProvider).loadSeedColor();
+  }
+
+  Future<void> setSeedColor(Color? color) async {
+    state = color;
+    await ref.read(themePreferencesServiceProvider).setSeedColor(color);
   }
 }
