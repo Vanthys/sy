@@ -177,6 +177,10 @@ class BackupSettingsScreen extends ConsumerWidget {
           actions: [
             FilledButton(
               onPressed: () {
+                // Invalidate isar so it reopens against the restored DB file.
+                // Must happen before restartApp so ProviderScope (now outside
+                // RestartWidget) keeps its InheritedWidget alive during teardown.
+                ref.invalidate(isarProvider);
                 Navigator.pop(ctx);
                 RestartWidget.restartApp(context);
               },

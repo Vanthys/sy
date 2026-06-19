@@ -76,6 +76,21 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
     while (_optionColors.length < _optionControllers.length) {
       _optionColors.add('#2196F3');
     }
+
+    // Eject user if vault locks and we are dealing with a sensitive tracker.
+    // Must be in initState (not build) to avoid stale dependents on dispose.
+    ref.listenManual<VaultState>(vaultProvider, (previous, next) {
+      final wasUnlocked = previous?.isVaultUnlocked ?? false;
+      final isUnlocked = next.isVaultUnlocked;
+      if (wasUnlocked && !isUnlocked) {
+        final isSensitive =
+            widget.existingTracker?.privacyLevel != PrivacyLevel.standard ||
+            _privacyLevel != PrivacyLevel.standard;
+        if (isSensitive && mounted) {
+          Navigator.pop(context);
+        }
+      }
+    });
   }
 
   @override
@@ -208,27 +223,6 @@ class _TrackerEditorSheetState extends ConsumerState<TrackerEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
-    // Eject user if vault locks and we are dealing with a sensitive tracker
-    ref.listen<VaultState>(vaultProvider, (
-      VaultState? previous,
-      VaultState next,
-    ) {
-      final wasUnlocked = previous?.isVaultUnlocked ?? false;
-      final isUnlocked = next.isVaultUnlocked;
-
-      // If vault locks
-      if (wasUnlocked && !isUnlocked) {
-        // Close if we are editing a sensitive tracker, or if we've selected a sensitive level
-        final isSensitive =
-            widget.existingTracker?.privacyLevel != PrivacyLevel.standard ||
-            _privacyLevel != PrivacyLevel.standard;
-
-        if (isSensitive && mounted) {
-          Navigator.pop(context);
-        }
-      }
-    });
 
     return SafeArea(
       child: Padding(
