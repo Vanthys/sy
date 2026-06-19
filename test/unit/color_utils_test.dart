@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sy3/utils/color_utils.dart';
+import 'package:sy/utils/color_utils.dart';
 
 // Helper: compare Color by argb int value (avoids MaterialColor vs Color mismatch)
 Matcher colorEquals(Color expected) => predicate<Color>(

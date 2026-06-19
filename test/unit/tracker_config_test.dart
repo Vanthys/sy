@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sy3/data/tracker_config.dart';
+import 'package:sy/data/tracker_config.dart';
 
 void main() {
   group('TrackerConfig', () {

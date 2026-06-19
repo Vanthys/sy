@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sy3/logic/theme_provider.dart';
+import 'package:sy/logic/theme_provider.dart';
 
 Future<ProviderContainer> _buildContainer(
   Map<String, Object> initialValues,

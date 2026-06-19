@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sy3/data/database.dart';
-import 'package:sy3/data/entry_repository.dart';
-import 'package:sy3/data/providers.dart';
-import 'package:sy3/logic/tracker_overview_provider.dart';
+import 'package:sy/data/database.dart';
+import 'package:sy/data/entry_repository.dart';
+import 'package:sy/data/providers.dart';
+import 'package:sy/logic/tracker_overview_provider.dart';
 
 class _RecordingEntryRepository implements EntryRepository {
   _RecordingEntryRepository(this.entries);

@@ -5,11 +5,11 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar_community/isar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sy3/data/schemas/tracker_schema.dart';
-import 'package:sy3/data/schemas/entry_schema.dart';
-import 'package:sy3/data/database.dart';
-import 'package:sy3/data/tracker_config.dart';
-import 'package:sy3/data/entry_repository.dart';
+import 'package:sy/data/schemas/tracker_schema.dart';
+import 'package:sy/data/schemas/entry_schema.dart';
+import 'package:sy/data/database.dart';
+import 'package:sy/data/tracker_config.dart';
+import 'package:sy/data/entry_repository.dart';
 import '../helpers/isar_test_helper.dart';
 
 // ---------------------------------------------------------------------------

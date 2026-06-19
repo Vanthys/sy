@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sy3/data/database.dart';
-import 'package:sy3/data/entry_repository.dart';
-import 'package:sy3/data/providers.dart';
-import 'package:sy3/data/tracker_config.dart';
-import 'package:sy3/logic/tracker_stats_provider.dart';
+import 'package:sy/data/database.dart';
+import 'package:sy/data/entry_repository.dart';
+import 'package:sy/data/providers.dart';
+import 'package:sy/data/tracker_config.dart';
+import 'package:sy/logic/tracker_stats_provider.dart';
 
 class _StatsEntryRepository implements EntryRepository {
   _StatsEntryRepository(this.entries);
