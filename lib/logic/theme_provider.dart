@@ -38,3 +38,16 @@ class SeedColorNotifier extends _$SeedColorNotifier {
     await ref.read(themePreferencesServiceProvider).setSeedColor(color);
   }
 }
+
+@Riverpod(keepAlive: true)
+class ReverseMonthOrderNotifier extends _$ReverseMonthOrderNotifier {
+  @override
+  bool build() {
+    return ref.watch(themePreferencesServiceProvider).loadReverseMonthOrder();
+  }
+
+  Future<void> toggle() async {
+    state = !state;
+    await ref.read(themePreferencesServiceProvider).setReverseMonthOrder(state);
+  }
+}

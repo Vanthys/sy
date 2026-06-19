@@ -69,7 +69,6 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   .setTheme(val ? AppThemeMode.amoled : AppThemeMode.dark);
             },
           ),
-          const Divider(indent: 16, endIndent: 16),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(
@@ -101,6 +100,23 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   )
                 : null,
             onTap: () => _pickColor(context, ref, customSeed),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              'Behaviour',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Reverse scroll direction'),
+            subtitle: const Text('Start at the bottom, scroll up for older'),
+            secondary: const Icon(Icons.swap_vert),
+            value: ref.watch(reverseMonthOrderProvider),
+            onChanged: (_) =>
+                ref.read(reverseMonthOrderProvider.notifier).toggle(),
           ),
         ],
       ),
