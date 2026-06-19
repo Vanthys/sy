@@ -94,7 +94,7 @@ class BackupSettingsScreen extends ConsumerWidget {
 
       final backupBytes = await File(backupPath).readAsBytes();
 
-      final savePath = await FilePicker.platform.saveFile(
+      final savePath = await FilePicker.saveFile(
         dialogTitle: 'Save backup',
         fileName: p.basename(backupPath),
         initialDirectory: Platform.isAndroid
@@ -120,13 +120,10 @@ class BackupSettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _importBackup(BuildContext context, WidgetRef ref) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: false,
-    );
-    if (result == null || result.files.isEmpty) return;
+    final file = await FilePicker.pickFile(type: FileType.any);
+    if (file == null) return;
 
-    final filePath = result.files.single.path;
+    final filePath = file.path;
     if (filePath == null) return;
 
     if (!context.mounted) return;
