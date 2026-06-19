@@ -1,4 +1,4 @@
-# sy3
+# sy
 
 A secure, high-performance, multi-platform habit and streak tracker built with Flutter, Riverpod, and Isar.
 

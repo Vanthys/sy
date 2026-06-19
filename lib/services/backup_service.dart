@@ -60,7 +60,7 @@ class BackupService {
 
     final tempDir = outputDir ?? await getTemporaryDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final backupFile = File('${tempDir.path}/sy3_backup_$timestamp.sy3backup');
+    final backupFile = File('${tempDir.path}/sy_backup_$timestamp.sybackup');
     await backupFile.writeAsString(encrypted);
 
     return backupFile.path;

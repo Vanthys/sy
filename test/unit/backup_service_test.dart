@@ -205,7 +205,7 @@ void main() {
     });
 
     test('corrupted backup file throws an exception', () async {
-      final corrupted = File('${tempDir.path}/bad.sy3backup');
+      final corrupted = File('${tempDir.path}/bad.sybackup');
       await corrupted.writeAsString('notvalidencrypteddata:aaaa');
 
       final storage = await makeVaultStorage();
