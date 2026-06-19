@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sy3/data/database.dart';
-import 'package:sy3/data/tracker_config.dart';
-import 'package:sy3/widgets/tracker_value_bottom_sheet.dart';
+import 'package:sy/data/database.dart';
+import 'package:sy/data/tracker_config.dart';
+import 'package:sy/widgets/tracker_value_bottom_sheet.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sy3/data/database.dart';
+import 'package:sy/data/database.dart';
 import '../logic/tracker_calendar_provider.dart';
 import '../data/tracker_config.dart';
 

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sy3/utils/encryption_utils.dart';
+import 'package:sy/utils/encryption_utils.dart';
 
 void main() {
   group('EncryptionUtils', () {

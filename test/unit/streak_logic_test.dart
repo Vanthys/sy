@@ -1,9 +1,9 @@
 // Unit tests for the public computeStreaks function in streak_logic.dart.
 // All tests are pure Dart — no Isar, no Flutter binding required.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sy3/data/database.dart';
-import 'package:sy3/data/streak_logic.dart';
-import 'package:sy3/data/tracker_config.dart';
+import 'package:sy/data/database.dart';
+import 'package:sy/data/streak_logic.dart';
+import 'package:sy/data/tracker_config.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
     <application
-        android:label="sy4"
+        android:label="sy"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity

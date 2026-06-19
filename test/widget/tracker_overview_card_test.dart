@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sy3/data/database.dart';
-import 'package:sy3/data/tracker_config.dart';
-import 'package:sy3/logic/tracker_overview_provider.dart';
-import 'package:sy3/widgets/tracker_overview_card.dart';
+import 'package:sy/data/database.dart';
+import 'package:sy/data/tracker_config.dart';
+import 'package:sy/logic/tracker_overview_provider.dart';
+import 'package:sy/widgets/tracker_overview_card.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers

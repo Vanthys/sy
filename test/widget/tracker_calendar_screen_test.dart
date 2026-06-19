@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sy3/data/database.dart';
-import 'package:sy3/data/entry_repository.dart';
-import 'package:sy3/data/providers.dart';
-import 'package:sy3/data/tracker_config.dart';
-import 'package:sy3/logic/tracker_stats_provider.dart';
-import 'package:sy3/logic/vault_provider.dart';
-import 'package:sy3/screens/tracker_calendar_screen.dart';
-import 'package:sy3/services/shared_preferences_provider.dart';
+import 'package:sy/data/database.dart';
+import 'package:sy/data/entry_repository.dart';
+import 'package:sy/data/providers.dart';
+import 'package:sy/data/tracker_config.dart';
+import 'package:sy/logic/tracker_stats_provider.dart';
+import 'package:sy/logic/vault_provider.dart';
+import 'package:sy/screens/tracker_calendar_screen.dart';
+import 'package:sy/services/shared_preferences_provider.dart';
 
 class _FakeEntryRepository implements EntryRepository {
   @override

@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sy3/data/database.dart';
-import 'package:sy3/logic/vault_provider.dart';
-import 'package:sy3/services/shared_preferences_provider.dart';
-import 'package:sy3/utils/encryption_utils.dart';
+import 'package:sy/data/database.dart';
+import 'package:sy/logic/vault_provider.dart';
+import 'package:sy/services/shared_preferences_provider.dart';
+import 'package:sy/utils/encryption_utils.dart';
 
 const MethodChannel _localAuthChannel = MethodChannel(
   'plugins.flutter.io/local_auth',
