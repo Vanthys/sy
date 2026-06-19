@@ -52,7 +52,9 @@ class _AboutSettingsScreenState extends State<AboutSettingsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Steady on your way',
-                  style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+                  style: text.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
