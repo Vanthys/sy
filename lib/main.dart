@@ -16,9 +16,7 @@ void main() async {
   runApp(
     ProviderScope(
       overrides: [sharedPreferencesProvider.overrideWith((ref) => prefs)],
-      child: const RestartWidget(
-        child: SyApp(),
-      ),
+      child: const RestartWidget(child: SyApp()),
     ),
   );
 }

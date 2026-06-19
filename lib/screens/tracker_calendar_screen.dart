@@ -47,7 +47,6 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         title: Row(
