@@ -24,21 +24,9 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Eject user if vault locks and this is an encrypted tracker
-    ref.listen<VaultState>(vaultProvider, (
-      VaultState? previous,
-      VaultState next,
-    ) {
+    // Eject user if vault locks and this is an encrypted tracker.
+    // Must be in initState (not build) to avoid stale dependents on dispose.
+    ref.listenManual<VaultState>(vaultProvider, (previous, next) {
       final wasUnlocked = previous?.isVaultUnlocked ?? false;
       final isUnlocked = next.isVaultUnlocked;
       if (wasUnlocked &&
@@ -49,6 +37,16 @@ class _TrackerCalendarScreenState extends ConsumerState<TrackerCalendarScreen> {
         }
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
 
     return Scaffold(
       appBar: AppBar(

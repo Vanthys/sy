@@ -14,10 +14,10 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
 
   runApp(
-    RestartWidget(
-      child: ProviderScope(
-        overrides: [sharedPreferencesProvider.overrideWith((ref) => prefs)],
-        child: const SyApp(),
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWith((ref) => prefs)],
+      child: const RestartWidget(
+        child: SyApp(),
       ),
     ),
   );

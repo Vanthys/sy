@@ -77,7 +77,12 @@ Future<String?> showPinInputDialog(
       ],
     ),
   );
-  controller.dispose();
+  // Defer disposal until after the exit animation completes. showDialog()
+  // resolves at Navigator.pop() time, before the route finishes animating
+  // out. Disposing immediately causes TextField to crash when the overlay
+  // rebuilds during the animation (didUpdateWidget re-adds a listener to the
+  // disposed controller).
+  Future.delayed(const Duration(milliseconds: 400), controller.dispose);
   return result;
 }
 
@@ -156,7 +161,7 @@ Future<String?> showCreatePasswordDialog(
     ),
   );
 
-  passwordController.dispose();
-  confirmController.dispose();
+  Future.delayed(const Duration(milliseconds: 400), passwordController.dispose);
+  Future.delayed(const Duration(milliseconds: 400), confirmController.dispose);
   return result;
 }
