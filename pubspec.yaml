@@ -41,7 +41,7 @@ dependencies:
   isar_community: ^3.3.2
   isar_community_flutter_libs: ^3.3.2
   collection: ^1.19.1
-  intl: ^0.20.2
+  intl: ^0.20.3
   sleek_circular_slider: ^2.1.0
   flutter_launcher_icons: ^0.14.4
   dynamic_color: ^1.7.0
