@@ -72,7 +72,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   isar_community_generator: ^3.3.2
-  build_runner: ^2.13.1
+  build_runner: ^2.15.1
   mocktail: ^1.0.4
   riverpod_generator: ^4.0.1
 
