@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/database.dart';
-import '../../data/providers.dart';
 import '../../logic/vault_provider.dart';
-import '../../widgets/app_dialogs.dart';
+import '../../widgets/verify_pin_dialog.dart';
+import 'vault_pin_screen.dart';
 
 class VaultSettingsScreen extends ConsumerStatefulWidget {
   const VaultSettingsScreen({super.key});
@@ -38,39 +37,28 @@ class _VaultSettingsScreenState extends ConsumerState<VaultSettingsScreen> {
   Future<void> _setupPin(bool isSecret) async {
     final isConfigured = isSecret ? _isSecretConfigured : _isVaultConfigured;
 
-    if (isConfigured) {
-      final oldPin = await showPinInputDialog(
-        context,
-        title: 'Verify Current Passphrase',
-        label: 'Current Passphrase',
-      );
-      if (oldPin == null) return;
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            VaultPinScreen(isSecret: isSecret, isConfigured: isConfigured),
+      ),
+    );
 
-      final notifier = ref.read(vaultProvider.notifier);
-      final isValid = isSecret
-          ? await notifier.verifySecretPin(oldPin)
-          : await notifier.verifyGeneralPin(oldPin);
-
-      if (!isValid) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Incorrect current passphrase.')),
-          );
-        }
-        return;
+    if (saved == true) {
+      await _checkVaultStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vault passphrase saved successfully.')),
+        );
       }
-
-      if (!mounted) return;
-      await _showNewPinDialog(isSecret, oldPin: oldPin);
-    } else {
-      await _showNewPinDialog(isSecret);
     }
   }
 
   Future<bool> _verifyPinForAction(bool isSecret) async {
     if (ref.read(vaultProvider).isVaultUnlocked) return true;
 
-    final pin = await showPinInputDialog(
+    final pin = await VerifyPinDialog.show(
       context,
       title: 'Verify Passphrase',
       label: 'Current Passphrase',
@@ -88,88 +76,6 @@ class _VaultSettingsScreenState extends ConsumerState<VaultSettingsScreen> {
       ).showSnackBar(const SnackBar(content: Text('Incorrect passphrase.')));
     }
     return isValid;
-  }
-
-  Future<void> _showNewPinDialog(bool isSecret, {String? oldPin}) async {
-    final controller = TextEditingController();
-
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(isSecret ? 'Setup Secret Vault' : 'Setup General Vault'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isSecret
-                  ? 'Set a Secret Passphrase for your hidden trackers. This MUST be completely different from your General Passphrase.'
-                  : 'Set a General Passphrase to protect your standard vault trackers.',
-              style: Theme.of(ctx).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              obscureText: true,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'New Passphrase'),
-              onSubmitted: (_) =>
-                  _savePin(controller.text, isSecret, ctx, oldPin: oldPin),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                _savePin(controller.text, isSecret, ctx, oldPin: oldPin),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    controller.dispose();
-    _checkVaultStatus();
-  }
-
-  Future<void> _savePin(
-    String input,
-    bool isSecret,
-    BuildContext dialogContext, {
-    String? oldPin,
-  }) async {
-    if (input.trim().isEmpty) {
-      ScaffoldMessenger.of(dialogContext).showSnackBar(
-        const SnackBar(content: Text('Passphrase cannot be empty.')),
-      );
-      return;
-    }
-
-    final repo = await ref.read(trackerRepositoryProvider.future);
-
-    if (isSecret) {
-      if (oldPin != null) {
-        await repo.rekeyVault(PrivacyLevel.secret, oldPin, input);
-      }
-      await ref.read(vaultProvider.notifier).setSecretPin(input);
-    } else {
-      if (oldPin != null) {
-        await repo.rekeyVault(PrivacyLevel.vault, oldPin, input);
-      }
-      await ref.read(vaultProvider.notifier).setGeneralPin(input);
-    }
-
-    if (dialogContext.mounted) {
-      Navigator.pop(dialogContext);
-      ScaffoldMessenger.of(dialogContext).showSnackBar(
-        const SnackBar(content: Text('Vault passphrase saved successfully.')),
-      );
-    }
   }
 
   @override

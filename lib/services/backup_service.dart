@@ -71,6 +71,7 @@ class BackupService {
     required String password,
     required String targetIsarPath,
     required VaultStorageService vaultStorage,
+    required Future<void> Function() onPasswordValidated,
   }) async {
     final encrypted = await File(backupPath).readAsString();
 
@@ -87,6 +88,11 @@ class BackupService {
     if (dbFile == null) {
       throw Exception('Invalid backup: database file not found.');
     }
+
+    // Only now that the password's been validated and the backup's
+    // structurally sound do we let the caller close/release the database,
+    // so a wrong password never leaves it in a closed, unrecoverable state.
+    await onPasswordValidated();
 
     await File(targetIsarPath).writeAsBytes(dbFile.content as List<int>);
 
