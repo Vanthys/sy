@@ -128,6 +128,7 @@ void main() {
         password: 'mypassword',
         targetIsarPath: restoreTarget,
         vaultStorage: freshStorage,
+        onPasswordValidated: () async {},
       );
 
       expect(await File(restoreTarget).readAsBytes(), equals(original));
@@ -148,6 +149,7 @@ void main() {
         password: 'pass',
         targetIsarPath: '${tempDir.path}/restored.isar',
         vaultStorage: freshStorage,
+        onPasswordValidated: () async {},
       );
 
       expect(result.hasGeneralVault, isTrue);
@@ -176,6 +178,7 @@ void main() {
           password: 'pass',
           targetIsarPath: '${tempDir.path}/restored.isar',
           vaultStorage: freshStorage,
+          onPasswordValidated: () async {},
         );
 
         expect(result.hasGeneralVault, isFalse);
@@ -199,6 +202,7 @@ void main() {
           password: 'wrong',
           targetIsarPath: '${tempDir.path}/restored.isar',
           vaultStorage: freshStorage,
+          onPasswordValidated: () async {},
         ),
         throwsException,
       );
@@ -215,6 +219,7 @@ void main() {
           password: 'any',
           targetIsarPath: '${tempDir.path}/restored.isar',
           vaultStorage: storage,
+          onPasswordValidated: () async {},
         ),
         throwsException,
       );
@@ -243,6 +248,7 @@ void main() {
           password: 'pass',
           targetIsarPath: '${tempDir.path}/restored.isar',
           vaultStorage: freshStorage,
+          onPasswordValidated: () async {},
         );
 
         expect(result.hasGeneralVault, isTrue);
