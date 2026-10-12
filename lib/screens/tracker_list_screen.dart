@@ -8,6 +8,7 @@ import '/widgets/drag_drop_tracker_list.dart';
 import '/widgets/folder_editor_sheet.dart';
 import '/widgets/tracker_editor_sheet.dart';
 import 'folder_tracker_screen.dart';
+import 'settings/vault_settings_screen.dart';
 import 'settings_screen.dart';
 import 'tracker_calendar_screen.dart';
 
@@ -22,6 +23,8 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
   bool _showVaultHeader = false;
   bool _isUnlocking = false;
   bool _isCheckingVault = false;
+  // one 'vault not set up' message per pull-down
+  bool _notConfiguredShown = false;
   List<String>? _pendingOrder; // optimistic visible-tracker ID order
   final _pinController = TextEditingController();
   final FocusNode _headerFocus = FocusNode();
@@ -228,7 +231,12 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
 
     final pixels = _scrollController.position.pixels;
 
-    if (pixels < -120 && !_showVaultHeader && !_isCheckingVault) {
+    if (pixels >= 0) _notConfiguredShown = false;
+
+    if (pixels < -120 &&
+        !_notConfiguredShown &&
+        !_showVaultHeader &&
+        !_isCheckingVault) {
       _isCheckingVault = true;
       try {
         final isConfigured = await ref
@@ -237,11 +245,24 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
         if (!mounted) return;
 
         if (!isConfigured) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Vault is not configured. Go to Settings.'),
-            ),
-          );
+          _notConfiguredShown = true;
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                content: const Text('Vault is not set up.'),
+                persist: false,
+                action: SnackBarAction(
+                  label: 'Go to Settings',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const VaultSettingsScreen(),
+                    ),
+                  ),
+                ),
+              ),
+            );
           return;
         }
 
