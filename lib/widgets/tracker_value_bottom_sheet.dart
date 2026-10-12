@@ -137,18 +137,20 @@ class _TrackerValueBottomSheetState extends State<TrackerValueBottomSheet> {
 
     switch (config.inputType) {
       case InputType.toggle:
+        final isAbstinence = widget.tracker.streakType == StreakType.abstinence;
         return Center(
           child: SegmentedButton<double>(
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: 0.0,
-                label: Text('No'),
-                icon: Icon(Icons.close),
+                label: const Text('No'),
+                icon: Icon(isAbstinence ? Icons.check : Icons.close),
               ),
               ButtonSegment(
                 value: 1.0,
-                label: Text('Yes'),
-                icon: Icon(Icons.check),
+                label: const Text('Yes'),
+                // 'Yes' on an abstinence tracker is a lapse
+                icon: Icon(isAbstinence ? Icons.close : Icons.check),
               ),
             ],
             selected: {_totalValue},

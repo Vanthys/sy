@@ -94,7 +94,10 @@ class DayBlock extends StatelessWidget {
               child: Center(
                 child: inputType == InputType.toggle && hasData
                     ? Icon(
-                        Icons.check,
+                        // a logged day on an abstinence tracker is a lapse
+                        streakType == StreakType.abstinence
+                            ? Icons.close
+                            : Icons.check,
                         color: inStreak
                             ? Colors.white.withAlpha(220)
                             : Colors.white,
