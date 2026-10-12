@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -30,18 +32,50 @@ class LifecycleTrendChart extends StatelessWidget {
 
     return Container(
       height: 220,
-      padding: const EdgeInsets.only(top: 24, right: 16, left: 16, bottom: 16),
+      padding: const EdgeInsets.only(top: 16, right: 16, left: 16, bottom: 16),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: cs.outlineVariant, width: 1),
       ),
-      child: stats.lifecycle.isStacked
-          ? _buildStackedBarChart(context, cs)
-          : _buildSingleSeriesChart(context, cs),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // room for the first label, which hangs left of its point
+          final lead = _rotateLabels ? 52.0 : 14.0;
+          final trail = _rotateLabels ? 0.0 : 14.0;
+          final needed = stats.lifecycle.bucketLabels.length * _slotWidth;
+          final plotWidth = needed > constraints.maxWidth - lead - trail
+              ? needed
+              : constraints.maxWidth - lead - trail;
+          // reverse: starts scrolled to the newest bucket
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            reverse: true,
+            child: SizedBox(
+              width: lead + plotWidth + trail,
+              height: constraints.maxHeight,
+              child: Padding(
+                padding: EdgeInsets.only(left: lead, right: trail),
+                child: stats.lifecycle.isStacked
+                    ? _buildStackedBarChart(context, cs)
+                    : _buildSingleSeriesChart(context, cs),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
+
+  static const double _slotWidth = 44;
+
+  // monospace glyphs are ~0.6em wide
+  double _labelWidth(String label) => label.length * 11 * 0.6;
+
+  // labels like 'Mar 2026' don't fit a slot flat
+  bool get _rotateLabels =>
+      stats.lifecycle.bucketLabels.any((label) => label.length > 4);
 
   Widget _buildSingleSeriesChart(BuildContext context, ColorScheme cs) {
     final values = stats.lifecycle.series.first.values;
@@ -49,7 +83,7 @@ class LifecycleTrendChart extends StatelessWidget {
       0,
       (max, value) => value > max ? value : max,
     );
-    final maxY = maxVal <= 0 ? 1.0 : maxVal * 1.2;
+    final maxY = maxVal <= 0 ? 1.0 : maxVal * 1.5;
 
     if (_usesLineChart) {
       final spots = [
@@ -64,7 +98,7 @@ class LifecycleTrendChart extends StatelessWidget {
           maxY: maxY,
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
-              tooltipMargin: 8,
+              tooltipMargin: 12,
               fitInsideHorizontally: true,
               fitInsideVertically: true,
               getTooltipColor: (spot) => cs.inverseSurface,
@@ -105,7 +139,7 @@ class LifecycleTrendChart extends StatelessWidget {
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: maxVal > 0 ? maxVal / 2 : 1,
+            horizontalInterval: maxY / 3,
             getDrawingHorizontalLine: (value) => FlLine(
               color: cs.outlineVariant.withValues(alpha: 0.4),
               strokeWidth: 1,
@@ -139,11 +173,11 @@ class LifecycleTrendChart extends StatelessWidget {
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
-        maxY: maxVal <= 0 ? 1 : maxVal,
+        maxY: maxVal <= 0 ? 1 : maxVal * 1.5,
         barGroups: barGroups,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            tooltipMargin: 8,
+            tooltipMargin: 12,
             fitInsideHorizontally: true,
             fitInsideVertically: true,
             getTooltipColor: (group) => cs.inverseSurface,
@@ -237,11 +271,11 @@ class LifecycleTrendChart extends StatelessWidget {
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
-        maxY: maxVal <= 0 ? 1 : maxVal,
+        maxY: maxVal <= 0 ? 1 : maxVal * 1.5,
         barGroups: barGroups,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            tooltipMargin: 8,
+            tooltipMargin: 12,
             fitInsideHorizontally: true,
             fitInsideVertically: true,
             getTooltipColor: (group) => cs.inverseSurface,
@@ -281,31 +315,41 @@ class LifecycleTrendChart extends StatelessWidget {
       bottomTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          reservedSize: 24,
-          interval: _bottomInterval(),
+          reservedSize: _rotateLabels ? 60 : 24,
+          interval: 1,
           getTitlesWidget: (value, meta) {
+            // fl_chart also asks for labels at the axis min/max
+            if (value != value.roundToDouble()) return const SizedBox.shrink();
             final index = value.toInt();
             if (index < 0 || index >= stats.lifecycle.bucketLabels.length) {
               return const SizedBox.shrink();
             }
+            final label = stats.lifecycle.bucketLabels[index];
+            final text = Text(
+              label,
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+            );
+            if (!_rotateLabels) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: text,
+              );
+            }
+            // rotated about its centre, then shifted so the text ends at its
+            // point and hangs down-left clear of the plot
+            final w = _labelWidth(label);
+            final d = w * 0.7071 / 2;
             return Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                stats.lifecycle.bucketLabels[index],
-                style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
+              padding: EdgeInsets.only(top: d + 4),
+              child: Transform.translate(
+                offset: Offset(-d, 0),
+                child: Transform.rotate(angle: -math.pi / 4, child: text),
               ),
             );
           },
         ),
       ),
     );
-  }
-
-  double _bottomInterval() {
-    final count = stats.lifecycle.bucketLabels.length;
-    if (count <= 6) return 1;
-    if (count <= 12) return 2;
-    return 3;
   }
 
   Color _fallbackChoiceColor(int index, ColorScheme cs) {
