@@ -22,6 +22,8 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
   bool _showVaultHeader = false;
   bool _isUnlocking = false;
   bool _isCheckingVault = false;
+  bool _isAuthenticating = false; // biometric prompt open
+  late final AppLifecycleListener _lifecycleListener;
   List<String>? _pendingOrder; // optimistic visible-tracker ID order
   final _pinController = TextEditingController();
   final FocusNode _headerFocus = FocusNode();
@@ -31,6 +33,11 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _lifecycleListener = AppLifecycleListener(
+      onInactive: _dismissVaultHeader,
+      onHide: _dismissVaultHeader,
+      onPause: _dismissVaultHeader,
+    );
     Future.microtask(() async {
       try {
         await ref.read(refreshStreaksProvider(false).future);
@@ -40,6 +47,7 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
 
   @override
   void dispose() {
+    _lifecycleListener.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _pinController.dispose();
@@ -201,9 +209,24 @@ class _TrackerListScreenState extends ConsumerState<TrackerListScreen> {
     }
   }
 
+  /// Closes the unlock field and drops anything typed, e.g. when the device
+  /// is locked or the app loses focus.
+  void _dismissVaultHeader() {
+    if (_isAuthenticating || !_showVaultHeader) return;
+    _pinController.clear();
+    _headerFocus.unfocus();
+    if (mounted) setState(() => _showVaultHeader = false);
+  }
+
   Future<void> _unlockWithBiometrics() async {
     final notifier = ref.read(vaultProvider.notifier);
-    final unlocked = await notifier.unlockVaultWithBiometrics();
+    _isAuthenticating = true;
+    final bool unlocked;
+    try {
+      unlocked = await notifier.unlockVaultWithBiometrics();
+    } finally {
+      _isAuthenticating = false;
+    }
     if (unlocked) {
       if (mounted) setState(() => _isUnlocking = true);
       try {
