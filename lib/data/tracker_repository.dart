@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:encrypt/encrypt.dart' as enc;
 import 'package:isar_community/isar.dart';
 import 'package:uuid/uuid.dart';
 import '/data/database.dart';
@@ -252,9 +253,20 @@ class TrackerRepository {
   // Vault re-key
   // ------------------------------------------------------------------
 
-  Future<void> rekeyVault(
+  Future<void> rekeyVault(PrivacyLevel level, String oldPin, String newPin) {
+    return rekeyVaultWithKey(
+      level,
+      EncryptionUtils.deriveKeyFromPin(oldPin),
+      newPin,
+    );
+  }
+
+  /// Re-encrypts [level] using an already known [oldKey] (e.g. the key held
+  /// by an unlocked vault) instead of the old passphrase. Throws before
+  /// writing anything if [oldKey] can't decrypt any of the rows.
+  Future<void> rekeyVaultWithKey(
     PrivacyLevel level,
-    String oldPin,
+    enc.Key oldKey,
     String newPin,
   ) async {
     final rows = await _trackers
@@ -262,8 +274,14 @@ class TrackerRepository {
         .privacyLevelIndexEqualTo(level.index)
         .findAll();
 
-    final oldKey = EncryptionUtils.deriveKeyFromPin(oldPin);
     final newKey = EncryptionUtils.deriveKeyFromPin(newPin);
+
+    if (rows.isNotEmpty &&
+        rows.every(
+          (r) => EncryptionUtils.decryptText(r.title, oldKey) == null,
+        )) {
+      throw StateError('Current vault key cannot decrypt the vault data.');
+    }
 
     await _isar.writeTxn(() async {
       for (final row in rows) {
