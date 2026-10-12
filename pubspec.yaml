@@ -36,7 +36,7 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.9
+  cupertino_icons: ^2.0.0
   # Isar community fork (replaces Drift/SQLite)
   isar_community: ^3.3.2
   isar_community_flutter_libs: ^3.3.2
@@ -44,21 +44,21 @@ dependencies:
   intl: ^0.20.2
   sleek_circular_slider: ^2.1.0
   flutter_launcher_icons: ^0.14.4
-  dynamic_color: ^1.7.0
+  dynamic_color: ^1.9.0
   flutter_riverpod: ^3.3.1
   riverpod_annotation: ^4.0.2
   share_plus: ^13.0.0
   flutter_colorpicker: ^1.1.0
   encrypt: ^5.0.3
   shared_preferences: ^2.5.5
-  flutter_secure_storage: ^10.0.0
+  flutter_secure_storage: ^11.2.0
   local_auth: ^3.0.1
   cryptography: ^2.9.0
   crypto: ^3.0.7
   screen_protector: ^1.5.1
   fl_chart: ^1.2.0
   archive: ^4.0.9
-  file_picker: ^12.0.0-beta.7
+  file_picker: ^13.1.0
   package_info_plus: ^10.0.0
 
 dev_dependencies:
