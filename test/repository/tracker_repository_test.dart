@@ -470,6 +470,73 @@ void main() {
           expect(withNewKey.description, 'Keep this hidden');
         },
       );
+
+      test(
+        'rekeyVaultWithKey re-encrypts without knowing the old pin',
+        () async {
+          final repo = TrackerRepository(
+            isar,
+            _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '2468'),
+          );
+          await repo.createTracker(
+            title: 'Secret Goal',
+            description: 'Keep this hidden',
+            streakType: StreakType.continued,
+            config: const TrackerConfig(),
+            privacyLevel: PrivacyLevel.vault,
+          );
+
+          await repo.rekeyVaultWithKey(
+            PrivacyLevel.vault,
+            EncryptionUtils.deriveKeyFromPin('2468'),
+            '1357',
+          );
+
+          final row = await isar.collection<IsarTracker>().where().findFirst();
+          final newKeyRepo = TrackerRepository(
+            isar,
+            _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '1357'),
+          );
+          final tracker = await newKeyRepo.getTrackerById(row!.uuid);
+          expect(tracker!.title, 'Secret Goal');
+          expect(tracker.description, 'Keep this hidden');
+        },
+      );
+
+      test(
+        'rekeyVaultWithKey throws and leaves data alone for a wrong key',
+        () async {
+          final repo = TrackerRepository(
+            isar,
+            _vaultState(unlockedLevel: PrivacyLevel.vault, pin: '2468'),
+          );
+          await repo.createTracker(
+            title: 'Secret Goal',
+            streakType: StreakType.continued,
+            config: const TrackerConfig(),
+            privacyLevel: PrivacyLevel.vault,
+          );
+          final before = (await isar
+              .collection<IsarTracker>()
+              .where()
+              .findFirst())!;
+
+          await expectLater(
+            repo.rekeyVaultWithKey(
+              PrivacyLevel.vault,
+              EncryptionUtils.deriveKeyFromPin('0000'),
+              '1357',
+            ),
+            throwsStateError,
+          );
+
+          final after = (await isar
+              .collection<IsarTracker>()
+              .where()
+              .findFirst())!;
+          expect(after.title, before.title);
+        },
+      );
     });
   });
 }

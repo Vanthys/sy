@@ -32,7 +32,16 @@ class _VaultPinScreenState extends ConsumerState<VaultPinScreen> {
   late final TextEditingController _pinController;
   late final TextEditingController _confirmController;
   bool _isSubmitting = false;
+  bool _useUnlockedVault = false;
   String? _errorText;
+
+  /// The general vault is open, so its key is in memory and the current
+  /// passphrase isn't needed to re-encrypt. The secret vault never keeps its key.
+  bool get _canUseUnlockedVault {
+    if (widget.isSecret || !widget.isConfigured) return false;
+    final vault = ref.read(vaultProvider);
+    return vault.unlockedLevel == PrivacyLevel.vault && vault.activeKey != null;
+  }
 
   String get _vaultLabel => widget.isSecret ? 'Secret' : 'General';
 
@@ -71,7 +80,9 @@ class _VaultPinScreenState extends ConsumerState<VaultPinScreen> {
   }
 
   bool get _canSubmit =>
-      (!widget.isConfigured || _oldPinController!.text.isNotEmpty) &&
+      (!widget.isConfigured ||
+          _useUnlockedVault ||
+          _oldPinController!.text.isNotEmpty) &&
       validatePassphraseLength(_pinController.text) == null &&
       _pinController.text == _confirmController.text;
 
@@ -84,7 +95,7 @@ class _VaultPinScreenState extends ConsumerState<VaultPinScreen> {
     final notifier = ref.read(vaultProvider.notifier);
     String? oldPin;
 
-    if (widget.isConfigured) {
+    if (widget.isConfigured && !_useUnlockedVault) {
       oldPin = _oldPinController!.text;
       final isValid = widget.isSecret
           ? await notifier.verifySecretPin(oldPin)
@@ -117,7 +128,19 @@ class _VaultPinScreenState extends ConsumerState<VaultPinScreen> {
     }
 
     try {
-      if (oldPin != null) {
+      if (_useUnlockedVault) {
+        final key = ref.read(vaultProvider).activeKey;
+        if (key == null) {
+          setState(() {
+            _isSubmitting = false;
+            _useUnlockedVault = false;
+            _errorText = 'The vault was locked. Enter your current passphrase.';
+          });
+          return;
+        }
+        final repo = await ref.read(trackerRepositoryProvider.future);
+        await repo.rekeyVaultWithKey(PrivacyLevel.vault, key, newPin);
+      } else if (oldPin != null) {
         final repo = await ref.read(trackerRepositoryProvider.future);
         await repo.rekeyVault(
           widget.isSecret ? PrivacyLevel.secret : PrivacyLevel.vault,
@@ -153,14 +176,36 @@ class _VaultPinScreenState extends ConsumerState<VaultPinScreen> {
       children: [
         Text(_description, style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 16),
-        if (widget.isConfigured) ...[
+        if (widget.isConfigured && !_useUnlockedVault) ...[
           PassphraseField(
             controller: _oldPinController!,
             label: 'Current Passphrase',
             autofocus: true,
             onChanged: (_) => setState(() {}),
           ),
+          if (_canUseUnlockedVault)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => setState(() => _useUnlockedVault = true),
+                child: const Text('Forgot it? Use my unlocked vault'),
+              ),
+            ),
           const SizedBox(height: 16),
+        ],
+        if (_useUnlockedVault) ...[
+          Text(
+            'Your vault is unlocked, so the current passphrase is not needed.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => setState(() => _useUnlockedVault = false),
+              child: const Text('Enter current passphrase instead'),
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
         PassphraseField(
           controller: _pinController,

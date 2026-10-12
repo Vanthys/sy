@@ -166,6 +166,11 @@ class VaultNotifier extends _$VaultNotifier {
           saltBase64: saltBase64,
           encryptionKeyBase64: aesKey.base64,
         );
+
+    // keep an open vault readable after a change
+    if (state.unlockedLevel == PrivacyLevel.vault) {
+      state = state.copyWith(activeKey: aesKey);
+    }
   }
 
   Future<void> setSecretPin(String newPin) async {

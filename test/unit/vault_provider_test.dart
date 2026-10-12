@@ -123,6 +123,20 @@ void main() {
       },
     );
 
+    test('setGeneralPin refreshes the key of an open general vault', () async {
+      final container = await _createContainer();
+      final notifier = container.read(vaultProvider.notifier);
+
+      await notifier.setGeneralPin('1111');
+      await notifier.unlockVault('1111');
+      await notifier.setGeneralPin('2222');
+
+      expect(
+        container.read(vaultProvider).activeKey,
+        EncryptionUtils.deriveKeyFromPin('2222'),
+      );
+    });
+
     test(
       'setSecretPin stores configuration and unlockVault prefers secret level',
       () async {
