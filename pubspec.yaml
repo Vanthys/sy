@@ -44,7 +44,7 @@ dependencies:
   intl: ^0.20.2
   sleek_circular_slider: ^2.1.0
   flutter_launcher_icons: ^0.14.4
-  dynamic_color: ^1.9.0
+  dynamic_color: ^2.1.0
   flutter_riverpod: ^3.3.1
   riverpod_annotation: ^4.0.2
   share_plus: ^13.0.0
