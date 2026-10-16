@@ -74,7 +74,7 @@ dev_dependencies:
   isar_community_generator: ^3.3.2
   build_runner: ^2.13.1
   mocktail: ^1.0.4
-  riverpod_generator: ^4.0.1
+  riverpod_generator: ^4.0.9
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
