@@ -38,7 +38,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^2.0.0
   # Isar community fork (replaces Drift/SQLite)
-  isar_community: ^3.3.2
+  isar_community: ^3.4.1
   isar_community_flutter_libs: ^3.3.2
   collection: ^1.19.1
   intl: ^0.20.2
